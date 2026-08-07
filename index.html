@@ -1,2325 +1,999 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0a0f" />
-<title>Ankit · AI Beauty & Grooming Studio</title>
-<meta name="description" content="Ankit — On-device AI beauty & grooming studio. Real-time hairstyle, beard, lipstick, eyeshadow, glasses try-on and skin analysis. GDPR-ready. Built for salons, barbers & beauty brands." />
-
-<!-- Tailwind CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<!-- Google Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-<!-- MediaPipe Face Mesh (on-device, free, no API key) -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-
+<meta name="theme-color" content="#0b0b0f" />
+<title>ANKIT — Live AR Beauty & Barber Try-On Studio</title>
+<meta name="description" content="Advanced on-device AR try-on studio. Live hair color, beard, lipstick, eye color, makeup, backdrop and AI skin analysis. White-label ready for salons and beauty brands." />
 <style>
-  :root {
-    --bg: #07070d;
-    --bg-2: #0d0d18;
-    --surface: rgba(255,255,255,0.04);
-    --surface-2: rgba(255,255,255,0.07);
-    --border: rgba(255,255,255,0.08);
-    --border-strong: rgba(255,255,255,0.16);
-    --text: #f5f5fa;
-    --muted: rgba(245,245,250,0.62);
-    --muted-2: rgba(245,245,250,0.42);
-    --violet: #8b5cf6;
-    --violet-2: #a855f7;
-    --pink: #ec4899;
-    --pink-2: #f472b6;
-    --cyan: #22d3ee;
-    --amber: #fbbf24;
-    --green: #34d399;
-    --grad-1: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f472b6 100%);
-    --grad-2: linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%);
-    --grad-3: linear-gradient(135deg, #fbbf24 0%, #ec4899 100%);
+  :root{
+    --bg:#0b0b0f;
+    --bg-2:#121218;
+    --panel:rgba(255,255,255,.045);
+    --panel-strong:rgba(255,255,255,.08);
+    --border:rgba(255,255,255,.10);
+    --text:#f4f2ee;
+    --muted:#9a97a3;
+    --accent:#d9b26a;      /* champagne gold, overridable */
+    --accent-2:#f0d9a8;
+    --accent-ink:#1a1400;
+    --danger:#e5679a;
+    --ok:#7fd6a6;
+    --radius:18px;
+    --shadow:0 20px 60px -20px rgba(0,0,0,.7);
+    font-synthesis:none;
   }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  h1,h2,h3{font-family:"SF Pro Display",Inter,system-ui,sans-serif;letter-spacing:-.02em;line-height:1.05;margin:0}
+  a{color:inherit}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+  .btn{
+    appearance:none;border:0;cursor:pointer;font:inherit;font-weight:600;
+    display:inline-flex;align-items:center;gap:9px;justify-content:center;
+    padding:14px 22px;border-radius:999px;transition:.2s transform,.2s opacity,.2s background;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));color:var(--accent-ink);box-shadow:0 10px 30px -8px color-mix(in srgb,var(--accent) 60%,transparent)}
+  .btn-ghost{background:var(--panel-strong);color:var(--text);border:1px solid var(--border);backdrop-filter:blur(10px)}
+  .btn-ghost:hover{background:rgba(255,255,255,.12)}
+  .pill{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
 
-  * { -webkit-tap-highlight-color: transparent; }
-  html, body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
-  body {
-    background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(139,92,246,0.22), transparent 60%),
-      radial-gradient(1000px 500px at 90% 0%, rgba(236,72,153,0.18), transparent 60%),
-      radial-gradient(800px 400px at 50% 100%, rgba(34,211,238,0.10), transparent 60%),
-      var(--bg);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-  ::selection { background: rgba(236,72,153,0.35); color: #fff; }
+  /* ---------- top nav ---------- */
+  nav{position:fixed;top:0;left:0;right:0;z-index:40;transition:.3s}
+  nav.scrolled{background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  nav .inner{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:-.01em;font-size:19px}
+  .brand .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+    background:linear-gradient(140deg,var(--accent-2),var(--accent));color:var(--accent-ink);font-weight:900;overflow:hidden}
+  .brand .mark img{width:100%;height:100%;object-fit:cover}
+  .nav-links{display:flex;gap:26px;align-items:center;font-size:14px;color:var(--muted)}
+  .nav-links a{text-decoration:none;transition:.2s}.nav-links a:hover{color:var(--text)}
+  @media(max-width:760px){.nav-links{display:none}}
 
-  h1,h2,h3,h4,.font-display { font-family: 'Sora', 'Inter', sans-serif; letter-spacing: -0.02em; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  /* ---------- hero ---------- */
+  header.hero{position:relative;padding:130px 0 60px;overflow:hidden}
+  .hero-glow{position:absolute;inset:0;z-index:-1;background:
+     radial-gradient(60% 50% at 78% 12%, color-mix(in srgb,var(--accent) 26%,transparent), transparent 70%),
+     radial-gradient(50% 40% at 12% 90%, color-mix(in srgb,#6b5cff 20%,transparent), transparent 70%),
+     var(--bg)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:26px}}
+  .hero h1{font-size:clamp(38px,6vw,72px);font-weight:800;margin:18px 0}
+  .hero h1 .grad{background:linear-gradient(120deg,var(--accent-2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{color:var(--muted);font-size:clamp(15px,2.2vw,19px);line-height:1.6;max-width:560px}
+  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+  .trust{display:flex;gap:22px;margin-top:34px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+  .trust b{color:var(--text);font-size:20px;display:block;font-weight:800}
 
-  /* Animated mesh background */
-  .mesh-bg {
-    position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none;
-  }
-  .mesh-bg::before, .mesh-bg::after {
-    content: ""; position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%;
-    filter: blur(80px); opacity: 0.5; mix-blend-mode: screen;
-  }
-  .mesh-bg::before {
-    background: radial-gradient(circle, #8b5cf6, transparent 60%);
-    top: -20%; left: -10%; animation: float1 18s ease-in-out infinite;
-  }
-  .mesh-bg::after {
-    background: radial-gradient(circle, #ec4899, transparent 60%);
-    bottom: -25%; right: -10%; animation: float2 22s ease-in-out infinite;
-  }
-  @keyframes float1 { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(10%,8%) scale(1.15);} }
-  @keyframes float2 { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-8%,-6%) scale(1.1);} }
+  .device{position:relative;aspect-ratio:9/16;max-width:330px;margin:0 auto;width:100%;
+    border-radius:34px;border:1px solid var(--border);overflow:hidden;
+    background:linear-gradient(160deg,#1a1a22,#0d0d12);box-shadow:var(--shadow)}
+  .device .demo-face{position:absolute;inset:0;background-size:cover;background-position:center;filter:saturate(1.05)}
+  .device .scan{position:absolute;left:0;right:0;height:34%;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--accent) 30%,transparent),transparent);animation:scan 3.4s ease-in-out infinite}
+  @keyframes scan{0%{top:-34%}100%{top:100%}}
+  .device .chipset{position:absolute;left:12px;bottom:14px;right:12px;display:flex;gap:7px;flex-wrap:wrap}
+  .device .chip{font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.5);border:1px solid var(--border);backdrop-filter:blur(6px)}
 
-  /* Grid overlay */
-  .grid-overlay {
-    position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-    background-size: 56px 56px;
-    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-  }
+  /* ---------- sections ---------- */
+  section{padding:74px 0}
+  .sec-head{max-width:640px;margin-bottom:40px}
+  .sec-head h2{font-size:clamp(26px,4vw,44px);font-weight:800;margin:12px 0}
+  .sec-head p{color:var(--muted);font-size:16px;line-height:1.6}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:860px){.grid-3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:.25s}
+  .card:hover{background:var(--panel-strong);transform:translateY(-3px)}
+  .card .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .card h3{font-size:19px;margin-bottom:8px}
+  .card p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
 
-  /* Glass card */
-  .glass {
-    background: var(--surface);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-  }
-  .glass-strong {
-    background: var(--surface-2);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
-    border: 1px solid var(--border-strong);
-  }
+  .compare{display:grid;grid-template-columns:1fr;gap:12px}
+  .row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;align-items:center;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--panel);font-size:14px}
+  .row.h{background:transparent;border:0;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.1em;padding:0 18px}
+  .row .yes{color:var(--ok);font-weight:700}.row .no{color:var(--muted)}
+  @media(max-width:640px){.row{grid-template-columns:1fr;gap:4px}.row.h{display:none}.row .lbl{font-weight:700}}
 
-  /* Gradient text */
-  .grad-text {
-    background: var(--grad-1);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-  }
-  .grad-text-2 {
-    background: var(--grad-2);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-  }
+  pre{background:#08080c;border:1px solid var(--border);border-radius:14px;padding:18px;overflow:auto;font-size:13px;color:#cfc8dd}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
-  /* Glow button */
-  .btn-primary {
-    position: relative; isolation: isolate;
-    background: var(--grad-1);
-    color: white; font-weight: 600;
-    border-radius: 999px;
-    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s;
-    box-shadow: 0 8px 30px -8px rgba(236,72,153,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-  }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -8px rgba(236,72,153,0.7), inset 0 1px 0 rgba(255,255,255,0.3); }
-  .btn-primary:active { transform: translateY(0); }
+  footer{border-top:1px solid var(--border);padding:40px 0;color:var(--muted);font-size:13px}
+  footer .fx{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
 
-  .btn-ghost {
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    color: var(--text); font-weight: 500;
-    border-radius: 999px;
-    transition: all .25s;
-    backdrop-filter: blur(10px);
-  }
-  .btn-ghost:hover { background: var(--surface-2); border-color: rgba(255,255,255,0.28); transform: translateY(-1px); }
+  /* ---------- STUDIO overlay ---------- */
+  .studio{position:fixed;inset:0;z-index:100;background:#000;display:none;flex-direction:column}
+  .studio.open{display:flex}
+  .studio-top{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));
+    background:linear-gradient(180deg,rgba(0,0,0,.55),transparent)}
+  .studio-top .brand{font-size:16px}
+  .icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--border);background:rgba(0,0,0,.4);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
+  .icon-btn:hover{background:rgba(255,255,255,.14)}
+  .icon-btn.rec{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,103,154,.5)}50%{box-shadow:0 0 0 9px rgba(229,103,154,0)}}
+  .stage{position:relative;flex:1;overflow:hidden;display:grid;place-items:center;background:#000}
+  #video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  #canvas{max-width:100%;max-height:100%;width:auto;height:100%;display:block}
+  .stage-hint{position:absolute;z-index:4;text-align:center;color:var(--muted);padding:20px;max-width:360px}
+  .stage-hint .camic{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;margin:0 auto 14px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .loader{position:absolute;z-index:7;inset:0;display:none;place-items:center;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);text-align:center;padding:24px}
+  .loader.show{display:grid}
+  .spin{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);animation:sp 1s linear infinite;margin:0 auto 16px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .badge-fps{position:absolute;top:70px;left:16px;z-index:5;font-size:11px;color:var(--muted);background:rgba(0,0,0,.4);padding:5px 9px;border-radius:999px;border:1px solid var(--border);display:none}
+  .badge-fps.show{display:block}
 
-  /* Feature chip */
-  .chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 12px; border-radius: 999px;
-    background: var(--surface); border: 1px solid var(--border);
-    font-size: 12px; color: var(--muted); font-weight: 500;
-    backdrop-filter: blur(10px);
-  }
-  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  /* controls dock */
+  .dock{position:relative;z-index:6;background:linear-gradient(180deg,rgba(10,10,14,.4),var(--bg-2));
+    border-top:1px solid var(--border);padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+  .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 14px;border-radius:14px;
+    border:1px solid transparent;background:var(--panel);color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;transition:.2s;min-width:62px}
+  .tab svg{width:20px;height:20px}
+  .tab.active{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .panel-body{padding:6px 2px 2px}
+  .swatches{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 12px;scrollbar-width:none}
+  .swatches::-webkit-scrollbar{display:none}
+  .sw{flex:0 0 auto;width:42px;height:42px;border-radius:50%;cursor:pointer;position:relative;border:2px solid transparent;transition:.15s;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12)}
+  .sw.active{border-color:#fff;transform:scale(1.08)}
+  .sw.none{background:repeating-conic-gradient(#333 0% 25%,#222 0% 50%) 50%/12px 12px;display:grid;place-items:center;color:#fff}
+  .controls-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 4px 8px}
+  .slider{flex:1;min-width:150px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:var(--panel-strong);flex:1;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radius:50%;background:var(--accent);cursor:pointer}
+  .seg{display:inline-flex;background:var(--panel);border-radius:10px;padding:3px;border:1px solid var(--border)}
+  .seg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:8px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;text-transform:capitalize}
+  .seg button.on{background:var(--accent);color:var(--accent-ink)}
+  .action-bar{display:flex;gap:10px;align-items:center;justify-content:center;padding-top:8px}
+  .shutter{width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.85);background:var(--accent);cursor:pointer;transition:.15s;box-shadow:0 0 0 3px rgba(0,0,0,.4)}
+  .shutter:active{transform:scale(.9)}
 
-  /* Floating 3D cards */
-  .float-card { transition: transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s; transform-style: preserve-3d; }
-  .float-card:hover { transform: translateY(-6px) rotateX(2deg) rotateY(-2deg); }
+  /* presets */
+  #presetGrid{display:none;grid-template-columns:repeat(2,1fr);gap:10px;padding:8px 2px 12px}
+  @media(min-width:520px){#presetGrid{grid-template-columns:repeat(3,1fr)}}
+  .preset{padding:14px 14px;border-radius:12px;border:1px solid var(--border);background:var(--panel);color:var(--text);
+    font:inherit;font-weight:600;font-size:13px;cursor:pointer;text-align:left;transition:.2s;display:flex;flex-direction:column;gap:3px}
+  .preset:hover{background:var(--panel-strong);border-color:color-mix(in srgb,var(--accent) 45%,transparent);transform:translateY(-2px)}
+  .preset small{color:var(--muted);font-weight:500;font-size:11px}
 
-  /* Filter pill (in studio) */
-  .filter-pill {
-    display: flex; align-items: center; gap: 8px;
-    padding: 9px 14px; border-radius: 14px;
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--muted); font-size: 13px; font-weight: 500;
-    transition: all .2s; cursor: pointer; white-space: nowrap;
-  }
-  .filter-pill:hover { color: var(--text); border-color: var(--border-strong); }
-  .filter-pill.active {
-    background: var(--grad-1); color: white; border-color: transparent;
-    box-shadow: 0 6px 20px -6px rgba(236,72,153,0.6);
-  }
-  .filter-pill .swatch {
-    width: 18px; height: 18px; border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.25);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
-  }
+  /* skin analysis result */
+  .skin-report{padding:4px 2px 8px;display:none}
+  .skin-report.show{display:block}
+  .skin-score{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+  .ring{--v:0;width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:20px;
+    background:conic-gradient(var(--accent) calc(var(--v)*1%),rgba(255,255,255,.08) 0);position:relative}
+  .ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg-2)}
+  .ring span{position:relative;z-index:2}
+  .metric{margin:9px 0}
+  .metric .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .metric .bar{height:7px;border-radius:5px;background:var(--panel-strong);overflow:hidden}
+  .metric .bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .disclaimer{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
 
-  /* Style tile (hairstyles etc.) */
-  .style-tile {
-    position: relative; aspect-ratio: 1; border-radius: 14px;
-    background: var(--surface); border: 1px solid var(--border);
-    cursor: pointer; overflow: hidden;
-    transition: all .25s;
-  }
-  .style-tile:hover { border-color: var(--violet-2); transform: translateY(-2px); }
-  .style-tile.active { border-color: var(--pink-2); box-shadow: 0 0 0 2px rgba(236,72,153,0.35), 0 10px 30px -10px rgba(236,72,153,0.5); }
-  .style-tile .tile-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 5px 8px; font-size: 11px; font-weight: 500; color: white; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); text-align: center; }
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);z-index:200;background:var(--panel-strong);border:1px solid var(--border);
+    color:var(--text);padding:12px 18px;border-radius:12px;backdrop-filter:blur(10px);opacity:0;transition:.3s;pointer-events:none;font-size:14px;max-width:88vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* Range slider */
-  input[type="range"] {
-    -webkit-appearance: none; appearance: none; background: transparent; width: 100%; height: 24px;
-  }
-  input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px; background: var(--border-strong); border-radius: 999px;
-  }
-  input[type="range"]::-moz-range-track {
-    height: 4px; background: var(--border-strong); border-radius: 999px;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: var(--grad-1); margin-top: -7px;
-    box-shadow: 0 2px 8px rgba(236,72,153,0.5); border: 2px solid white;
-  }
-  input[type="range"]::-moz-range-thumb {
-    width: 18px; height: 18px; border-radius: 50%;
-    background: var(--violet-2); border: 2px solid white;
-  }
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;z-index:8;pointer-events:none}
+  .flash.go{animation:fl .5s ease}
+  @keyframes fl{0%{opacity:.9}100%{opacity:0}}
 
-  /* Loader */
-  .loader-ring {
-    width: 48px; height: 48px; border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.1);
-    border-top-color: var(--pink-2);
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Reveal on scroll */
-  .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1); }
-  .reveal.in { opacity: 1; transform: translateY(0); }
-
-  /* Studio stage */
-  .stage-frame {
-    position: relative; aspect-ratio: 3/4; max-height: 70vh;
-    border-radius: 24px; overflow: hidden;
-    background: linear-gradient(180deg, #0a0a14, #060609);
-    border: 1px solid var(--border-strong);
-    box-shadow: 0 30px 80px -30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
-  }
-  .stage-frame video, .stage-frame canvas {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  }
-  .stage-frame video { transform: scaleX(-1); }
-  .stage-frame canvas { transform: scaleX(-1); pointer-events: none; }
-
-  /* Toggle */
-  .toggle { position: relative; width: 44px; height: 24px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-strong); transition: all .25s; cursor: pointer; }
-  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: all .25s; }
-  .toggle.on { background: var(--grad-1); border-color: transparent; }
-  .toggle.on::after { left: 22px; }
-
-  /* Skin bar */
-  .skin-bar { height: 6px; border-radius: 999px; background: var(--border-strong); overflow: hidden; }
-  .skin-bar > div { height: 100%; border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
-
-  /* Nav */
-  .nav-link { color: var(--muted); font-size: 14px; font-weight: 500; transition: color .2s; }
-  .nav-link:hover { color: var(--text); }
-
-  /* Toast */
-  #toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-    z-index: 100; padding: 12px 20px; border-radius: 14px;
-    background: rgba(15,15,22,0.95); border: 1px solid var(--border-strong);
-    color: var(--text); font-size: 14px; font-weight: 500;
-    backdrop-filter: blur(20px);
-    transition: transform .4s cubic-bezier(.2,.8,.2,1);
-    box-shadow: 0 20px 50px -20px rgba(0,0,0,0.8);
-    max-width: 90vw; text-align: center;
-  }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* Snapshot thumbnail */
-  .snap-thumb {
-    position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden;
-    border: 1px solid var(--border-strong); cursor: pointer;
-    transition: transform .2s;
-  }
-  .snap-thumb:hover { transform: scale(1.04); }
-  .snap-thumb img { width: 100%; height: 100%; object-fit: cover; }
-
-  /* Hide scrollbar but keep functional */
-  .scroll-x { overflow-x: auto; scrollbar-width: none; }
-  .scroll-x::-webkit-scrollbar { display: none; }
-
-  /* Marquee */
-  .marquee { display: flex; gap: 48px; animation: marquee 30s linear infinite; }
-  @keyframes marquee { to { transform: translateX(-50%); } }
-
-  /* Comparison slider */
-  .compare-wrap { position: relative; aspect-ratio: 3/4; border-radius: 16px; overflow: hidden; border: 1px solid var(--border-strong); user-select: none; }
-  .compare-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .compare-handle { position: absolute; top: 0; bottom: 0; width: 3px; background: white; box-shadow: 0 0 12px rgba(255,255,255,0.6); cursor: ew-resize; }
-  .compare-handle::after { content: "⇔"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 36px; height: 36px; border-radius: 50%; background: white; color: #0a0a0f; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-
-  @media (max-width: 768px) {
-    .float-card:hover { transform: translateY(-4px); }
-  }
+  .hold-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;font-size:12px;color:var(--muted);background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px;border:1px solid var(--border)}
 </style>
 </head>
+<body>
 
-<body class="antialiased">
-
-<!-- ===== NAV ===== -->
-<nav class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-10 pt-4">
-  <div class="glass-strong rounded-2xl px-4 sm:px-6 py-3 flex items-center justify-between max-w-7xl mx-auto">
-    <a href="#top" class="flex items-center gap-2.5">
-      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:var(--grad-1);box-shadow:0 6px 20px -6px rgba(236,72,153,0.6)">
-        <svg viewBox="0 0 24 24" class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.39 7.36H22l-6.19 4.5L18.2 21 12 16.5 5.8 21l2.39-7.14L2 9.36h7.61z" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="flex flex-col leading-none">
-        <span class="font-display font-700 text-base tracking-tight">Ankit</span>
-        <span class="text-[10px] uppercase tracking-[0.18em] text-white/40 font-mono">AI Studio</span>
-      </div>
-    </a>
-    <div class="hidden md:flex items-center gap-7">
-      <a href="#features" class="nav-link">Capabilities</a>
-      <a href="#studio" class="nav-link">Live Studio</a>
-      <a href="#analysis" class="nav-link">Skin AI</a>
-      <a href="#business" class="nav-link">For Business</a>
-      <a href="#pricing" class="nav-link">Pricing</a>
-    </div>
-    <div class="flex items-center gap-2">
-      <span class="chip hidden sm:inline-flex"><span class="dot"></span>On-device</span>
-      <a href="#studio" class="btn-primary px-4 sm:px-5 py-2 text-sm">Try Live</a>
-    </div>
+<!-- NAV -->
+<nav id="nav"><div class="wrap inner">
+  <div class="brand"><span class="mark" id="brandMark">A</span><span id="brandName">ANKIT</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#compare">vs. Others</a>
+    <a href="#embed">White-label</a>
+    <a href="#" onclick="openStudio();return false">Live Demo</a>
   </div>
-</nav>
+  <button class="btn btn-primary" style="padding:10px 18px" onclick="openStudio()">Try it live</button>
+</div></nav>
 
-<!-- ===== HERO ===== -->
-<header id="top" class="relative min-h-[100svh] flex items-center pt-28 pb-16 px-4 sm:px-6 lg:px-10 overflow-hidden">
-  <div class="mesh-bg"></div>
-  <div class="grid-overlay"></div>
-
-  <div class="relative z-10 max-w-7xl mx-auto w-full grid lg:grid-cols-12 gap-10 items-center">
-    <!-- Left copy -->
-    <div class="lg:col-span-7 text-center lg:text-left">
-      <div class="inline-flex items-center gap-2 chip mb-6 reveal">
-        <span class="dot"></span>
-        <span>Powered by on-device neural face mesh · 468 landmarks</span>
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-glow"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill">On-device Computer Vision • No app install</span>
+      <h1>The <span class="grad">AR try-on studio</span><br/>for salons &amp; beauty brands</h1>
+      <p class="lead">Let customers try hair color, beard styles, lipstick, eye color, full makeup, studio backdrops and get an instant AI skin analysis — live on their own face, right in the browser. Powered by real-time facial landmark tracking and hair/skin segmentation. Nothing leaves the device.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary" onclick="openStudio()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Launch live try-on
+        </button>
+        <a class="btn btn-ghost" href="#embed">Embed on my site</a>
       </div>
-      <h1 class="font-display font-800 text-[44px] leading-[1.05] sm:text-6xl lg:text-7xl reveal">
-        The beauty studio<br/>
-        <span class="grad-text">that lives in your browser.</span>
-      </h1>
-      <p class="mt-6 text-base sm:text-lg text-white/65 max-w-xl mx-auto lg:mx-0 reveal">
-        Ankit is a white-label AI try-on engine for salons, barbers and beauty brands.
-        Real-time hairstyles, beards, lipstick, eyeshadow, glasses — plus a clinical-grade
-        skin analysis. All processing runs on-device. Nothing leaves the browser.
-      </p>
-
-      <div class="mt-8 flex flex-wrap items-center gap-3 justify-center lg:justify-start reveal">
-        <a href="#studio" class="btn-primary px-6 py-3.5 text-sm sm:text-base inline-flex items-center gap-2">
-          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          Open Live Studio
-        </a>
-        <a href="#features" class="btn-ghost px-6 py-3.5 text-sm sm:text-base inline-flex items-center gap-2">
-          Explore capabilities
-          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-        </a>
-      </div>
-
-      <!-- Stats -->
-      <div class="mt-12 grid grid-cols-3 gap-4 sm:gap-8 max-w-lg mx-auto lg:mx-0 reveal">
-        <div>
-          <div class="font-display font-700 text-2xl sm:text-3xl grad-text-2">12+</div>
-          <div class="text-xs text-white/50 mt-1">Live filters</div>
-        </div>
-        <div>
-          <div class="font-display font-700 text-2xl sm:text-3xl grad-text-2">468</div>
-          <div class="text-xs text-white/50 mt-1">Face landmarks</div>
-        </div>
-        <div>
-          <div class="font-display font-700 text-2xl sm:text-3xl grad-text-2">0ms</div>
-          <div class="text-xs text-white/50 mt-1">Cloud latency</div>
-        </div>
+      <div class="trust">
+        <div><b>478</b>face tracking points</div>
+        <div><b>13</b>live try-on tools</div>
+        <div><b>0</b>images uploaded</div>
+        <div><b>100%</b>in-browser</div>
       </div>
     </div>
-
-    <!-- Right hero visual -->
-    <div class="lg:col-span-5 relative reveal">
-      <div class="relative" id="heroVisual">
-        <!-- main glass card -->
-        <div class="glass-strong rounded-3xl p-5 float-card" style="box-shadow:0 40px 100px -40px rgba(139,92,246,0.5)">
-          <div class="aspect-[3/4] rounded-2xl overflow-hidden relative" style="background:linear-gradient(180deg,#15151f,#0a0a0f)">
-            <canvas id="heroCanvas" class="absolute inset-0 w-full h-full"></canvas>
-            <!-- HUD overlays -->
-            <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
-              <span class="chip"><span class="dot"></span>Live mesh</span>
-              <span class="font-mono text-[10px] text-white/40">468 pts · 60fps</span>
-            </div>
-            <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-              <div class="flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-pink-400"></span>
-                <span class="font-mono text-[10px] text-white/60">FACE_LOCKED</span>
-              </div>
-              <span class="font-mono text-[10px] text-white/60">ANKIT · v2.4</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- floating chips -->
-        <div class="absolute -top-4 -left-4 sm:-left-10 glass rounded-2xl px-3.5 py-2.5 float-card" style="animation:float1 8s ease-in-out infinite">
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(236,72,153,0.18)">
-              <span class="text-pink-300 text-sm">💄</span>
-            </div>
-            <div>
-              <div class="text-[10px] text-white/50 leading-none">Lipstick</div>
-              <div class="text-xs font-semibold leading-tight">Crimson #9B2D5B</div>
-            </div>
-          </div>
-        </div>
-        <div class="absolute -bottom-4 -right-4 sm:-right-10 glass rounded-2xl px-3.5 py-2.5 float-card" style="animation:float2 10s ease-in-out infinite">
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(139,92,246,0.18)">
-              <span class="text-violet-300 text-sm">✨</span>
-            </div>
-            <div>
-              <div class="text-[10px] text-white/50 leading-none">Skin score</div>
-              <div class="text-xs font-semibold leading-tight">87 · Excellent</div>
-            </div>
-          </div>
-        </div>
+    <div class="device" id="heroDevice">
+      <div class="demo-face" id="heroFace"></div>
+      <div class="scan"></div>
+      <div class="chipset">
+        <span class="chip">Hair color</span><span class="chip">Beard</span>
+        <span class="chip">Lips</span><span class="chip">Eye color</span>
+        <span class="chip">Backdrop</span><span class="chip">Skin AI</span>
       </div>
     </div>
-  </div>
-
-  <!-- Scroll cue -->
-  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-white/40">
-    <span class="text-[10px] uppercase tracking-[0.3em] font-mono">Scroll</span>
-    <div class="w-px h-8 bg-gradient-to-b from-white/40 to-transparent"></div>
   </div>
 </header>
 
-<!-- ===== TRUSTED MARQUEE ===== -->
-<section class="py-8 border-y border-white/5 overflow-hidden">
-  <div class="text-center text-xs uppercase tracking-[0.3em] text-white/35 font-mono mb-5">Built for the European beauty industry</div>
-  <div class="marquee whitespace-nowrap">
-    <span class="text-white/30 text-lg font-display font-500">Salons</span>
-    <span class="text-white/30 text-lg font-display font-500">Barbers</span>
-    <span class="text-white/30 text-lg font-display font-500">Cosmetics Brands</span>
-    <span class="text-white/30 text-lg font-display font-500">Med Spas</span>
-    <span class="text-white/30 text-lg font-display font-500">Dermatology Clinics</span>
-    <span class="text-white/30 text-lg font-display font-500">E-commerce</span>
-    <span class="text-white/30 text-lg font-display font-500">Salons</span>
-    <span class="text-white/30 text-lg font-display font-500">Barbers</span>
-    <span class="text-white/30 text-lg font-display font-500">Cosmetics Brands</span>
-    <span class="text-white/30 text-lg font-display font-500">Med Spas</span>
-    <span class="text-white/30 text-lg font-display font-500">Dermatology Clinics</span>
-    <span class="text-white/30 text-lg font-display font-500">E-commerce</span>
+<!-- FEATURES -->
+<section id="features"><div class="wrap">
+  <div class="sec-head"><span class="pill">Capabilities</span>
+    <h2>One studio. Every try-on your clients ask for.</h2>
+    <p>Each feature runs on Google MediaPipe models locally — precise face tracking plus multi-class hair &amp; skin segmentation.</p>
   </div>
-</section>
+  <div class="grid-3" id="featGrid"></div>
+</div></section>
 
-<!-- ===== FEATURES ===== -->
-<section id="features" class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="max-w-7xl mx-auto">
-    <div class="text-center mb-16 reveal">
-      <div class="chip mb-5"><span class="dot"></span>Capabilities</div>
-      <h2 class="font-display font-700 text-4xl sm:text-5xl lg:text-6xl">One engine. <span class="grad-text">Every face.</span></h2>
-      <p class="mt-5 text-white/60 max-w-2xl mx-auto">A modular try-on toolkit running entirely on-device. Pick the modules your business needs — hairstyle, beard, makeup, skin — and ship under your own brand.</p>
+<!-- COMPARE -->
+<section id="compare" style="background:var(--bg-2)"><div class="wrap">
+  <div class="sec-head"><span class="pill">Positioning</span>
+    <h2>Where this fits vs. Banuba, Perfect&nbsp;Corp &amp; ModiFace</h2>
+    <p>Honest breakdown so you can pitch clients with confidence. This studio owns the free, private, embeddable tier — with a clear upgrade path to generative engines when a client needs photoreal hairstyle-shape swaps.</p>
+  </div>
+  <div class="compare">
+    <div class="row h"><div>Capability</div><div>This studio (Ankit)</div><div>Enterprise SDKs</div></div>
+    <div class="row"><div class="lbl">Live hair recolor + makeup + beard</div><div class="yes">Included</div><div class="yes">Included</div></div>
+    <div class="row"><div class="lbl">Eye color, backdrop, retouch, presets</div><div class="yes">Included</div><div class="yes">Included</div></div>
+    <div class="row"><div class="lbl">Photo + video capture &amp; share</div><div class="yes">Included</div><div class="yes">Included</div></div>
+    <div class="row"><div class="lbl">Runs 100% on-device (private, GDPR)</div><div class="yes">Yes, free</div><div class="no">Cloud / license</div></div>
+    <div class="row"><div class="lbl">Embed anywhere / white-label</div><div class="yes">1 line iframe</div><div class="no">Contract</div></div>
+    <div class="row"><div class="lbl">Generative hairstyle-shape swap</div><div class="no">Upgrade path</div><div class="yes">Included</div></div>
+    <div class="row"><div class="lbl">Per-use / license cost</div><div class="yes">$0 runtime</div><div class="no">$$$</div></div>
+  </div>
+</div></section>
+
+<!-- EMBED / WHITE-LABEL -->
+<section id="embed"><div class="wrap">
+  <div class="sec-head"><span class="pill">White-label &amp; resell</span>
+    <h2>Ship a branded try-on to each client in minutes</h2>
+    <p>Drop this one file on any host and theme it per client with URL parameters — their brand name, accent color and logo. Sell it as a per-salon license or a monthly service.</p>
+  </div>
+  <div class="grid-3" style="align-items:start">
+    <div class="card" style="grid-column:span 2">
+      <h3>Embed on a client's website</h3>
+      <p style="margin-bottom:14px">Full-screen page, or drop it into any layout as an iframe. Camera permission is requested only when the visitor taps &ldquo;Try&rdquo;.</p>
+      <pre><code>&lt;iframe
+  src="https://your-host.com/ankit-tryon.html?brand=Glow%20Salon&accent=%23c88a5a&logo=https://.../logo.png"
+  allow="camera; fullscreen"
+  style="width:100%;height:640px;border:0;border-radius:16px"&gt;&lt;/iframe&gt;</code></pre>
     </div>
-
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <!-- Feature: Hair -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-violet-300" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C9 2 7 4 7 7v2c-2 1-3 3-3 6 0 4 3 7 8 7s8-3 8-7c0-3-1-5-3-6V7c0-3-2-5-5-5z"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Hairstyle Try-On</h3>
-        <p class="text-sm text-white/55 leading-relaxed">8 curated hairstyles — fades, layers, bobs, curls — locked to the head with 468-point face mesh tracking. Stays put when the head turns.</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">Live</span>
-          <span class="chip text-[11px]">Photo</span>
-          <span class="chip text-[11px]">All hair types</span>
-        </div>
-      </div>
-
-      <!-- Feature: Beard -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-amber-300" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="4"/><path d="M5 16c0 4 3 6 7 6s7-2 7-6c-2 1-4 1-7 1s-5 0-7-1z"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Beard Studio</h3>
-        <p class="text-sm text-white/55 leading-relaxed">Full beard, goatee, stubble, van dyke — each mesh-locked to chin and jaw landmarks. Adjust density and length in real time.</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">6 styles</span>
-          <span class="chip text-[11px]">Density slider</span>
-          <span class="chip text-[11px]">Color match</span>
-        </div>
-      </div>
-
-      <!-- Feature: Lipstick -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(236,72,153,0.15);border:1px solid rgba(236,72,153,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-pink-300" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 2h6l-1 6h-4z"/><rect x="8" y="8" width="8" height="4"/><path d="M9 12v8a3 3 0 006 0v-8"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Lipstick & Gloss</h3>
-        <p class="text-sm text-white/55 leading-relaxed">12-shade palette applied with multiply blend on the inner + outer lip contour. Adjustable opacity, gloss finish, matte finish.</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">12 shades</span>
-          <span class="chip text-[11px]">Matte / Gloss</span>
-          <span class="chip text-[11px]">Opacity</span>
-        </div>
-      </div>
-
-      <!-- Feature: Eyeshadow -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(34,211,238,0.15);border:1px solid rgba(34,211,238,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-cyan-300" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Eye Makeup</h3>
-        <p class="text-sm text-white/55 leading-relaxed">Eyeshadow, eyeliner and lash preview — all bound to the refined per-eye landmarks (iris refinement enabled).</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">8 palettes</span>
-          <span class="chip text-[11px]">Eyeliner</span>
-          <span class="chip text-[11px]">Iris color</span>
-        </div>
-      </div>
-
-      <!-- Feature: Glasses -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="#c4b5fd" stroke-width="1.8"><circle cx="6" cy="14" r="3"/><circle cx="18" cy="14" r="3"/><path d="M9 14h6M3 13l3-6h3M21 13l-3-6h-3"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Eyewear Fitting</h3>
-        <p class="text-sm text-white/55 leading-relaxed">6 frame styles — aviator, round, square, cat-eye — auto-scaled to your inter-pupillary distance. For opticians and fashion retailers.</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">6 frames</span>
-          <span class="chip text-[11px]">Auto IPD</span>
-          <span class="chip text-[11px]">Tint slider</span>
-        </div>
-      </div>
-
-      <!-- Feature: Skin AI -->
-      <div class="glass p-6 float-card reveal">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style="background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.3)">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-emerald-300" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>
-        </div>
-        <h3 class="font-display font-600 text-xl mb-2">Skin Analysis</h3>
-        <p class="text-sm text-white/55 leading-relaxed">Real metrics from cheek and forehead pixel samples: skin tone (ITA°), evenness, brightness, hydration proxy, redness, dark-circle index.</p>
-        <div class="mt-4 flex flex-wrap gap-1.5">
-          <span class="chip text-[11px]">6 metrics</span>
-          <span class="chip text-[11px]">ITA° tone</span>
-          <span class="chip text-[11px]">Recommendations</span>
-        </div>
+    <div class="card">
+      <h3>Theme it now</h3>
+      <p style="margin-bottom:12px">Preview white-label options live:</p>
+      <div class="controls-row" style="flex-direction:column;align-items:stretch;gap:12px">
+        <label style="font-size:13px;color:var(--muted)">Brand name
+          <input id="wlName" value="ANKIT" style="width:100%;margin-top:6px;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:10px;font:inherit"/>
+        </label>
+        <label style="font-size:13px;color:var(--muted)">Accent color
+          <input id="wlColor" type="color" value="#d9b26a" style="width:100%;height:42px;margin-top:6px;background:var(--panel);border:1px solid var(--border);border-radius:10px;cursor:pointer"/>
+        </label>
+        <button class="btn btn-primary" onclick="applyWhiteLabel()">Apply theme</button>
       </div>
     </div>
   </div>
-</section>
+</div></section>
 
-<!-- ===== LIVE STUDIO ===== -->
-<section id="studio" class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="mesh-bg opacity-50"></div>
-  <div class="relative z-10 max-w-7xl mx-auto">
-    <div class="text-center mb-12 reveal">
-      <div class="chip mb-5"><span class="dot"></span>Live Studio · runs on-device</div>
-      <h2 class="font-display font-700 text-4xl sm:text-5xl lg:text-6xl">Try it. <span class="grad-text">Right now.</span></h2>
-      <p class="mt-5 text-white/60 max-w-2xl mx-auto">Grant camera access and watch Ankit lock onto your face in real time. Switch filters, capture snaps, run a skin diagnostic — no upload, no account, no cloud.</p>
-    </div>
+<footer><div class="wrap fx">
+  <div class="brand" style="font-size:16px"><span class="mark" id="brandMark2">A</span><span id="brandName2">ANKIT</span> AR Studio</div>
+  <div>Built with on-device computer vision • MediaPipe • WebGL. No data leaves your device.</div>
+</div></footer>
 
-    <!-- Permission gate -->
-    <div id="permissionGate" class="glass-strong rounded-3xl p-8 sm:p-12 max-w-2xl mx-auto text-center reveal">
-      <div class="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center" style="background:var(--grad-1);box-shadow:0 12px 40px -10px rgba(236,72,153,0.6)">
-        <svg viewBox="0 0 24 24" class="w-8 h-8 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-      </div>
-      <h3 class="font-display font-600 text-2xl mb-3">Camera access required</h3>
-      <p class="text-white/55 text-sm max-w-md mx-auto mb-6">Ankit runs entirely in your browser. Your camera stream is processed locally with WebAssembly + WebGL and never leaves your device. No video is recorded or uploaded.</p>
-      <div class="flex flex-wrap items-center justify-center gap-2 mb-6">
-        <span class="chip"><span class="dot"></span>GDPR-ready</span>
-        <span class="chip"><span class="dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan)"></span>Zero data upload</span>
-        <span class="chip"><span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span>WASM accelerated</span>
-      </div>
-      <button id="startCameraBtn" class="btn-primary px-7 py-3.5 text-sm sm:text-base inline-flex items-center gap-2">
-        <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-        Enable camera & start
+<!-- ================= STUDIO ================= -->
+<div class="studio" id="studio" aria-hidden="true">
+  <div class="studio-top">
+    <div class="brand"><span class="mark" id="brandMark3">A</span><span id="brandName3">ANKIT</span></div>
+    <div style="display:flex;gap:10px">
+      <button class="icon-btn" id="flipBtn" title="Flip camera" aria-label="Flip camera">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
       </button>
-      <div id="permissionError" class="hidden mt-5 text-sm text-pink-300"></div>
-    </div>
-
-    <!-- Studio UI (hidden until granted) -->
-    <div id="studioUI" class="hidden grid lg:grid-cols-12 gap-6">
-
-      <!-- Stage -->
-      <div class="lg:col-span-7">
-        <div class="stage-frame" id="stageFrame">
-          <video id="cameraVideo" autoplay playsinline muted></video>
-          <canvas id="overlayCanvas"></canvas>
-
-          <!-- Loading overlay -->
-          <div id="loadingOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
-            <div class="loader-ring mb-4"></div>
-            <div class="text-sm text-white/70 font-mono">Loading neural mesh…</div>
-            <div id="loadStatus" class="text-xs text-white/40 mt-1 font-mono">initializing</div>
-          </div>
-
-          <!-- HUD top -->
-          <div class="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-            <div class="glass rounded-full px-3 py-1.5 flex items-center gap-2">
-              <span id="faceStatusDot" class="w-2 h-2 rounded-full bg-pink-400"></span>
-              <span id="faceStatusText" class="font-mono text-[10px] text-white/80">SEARCHING</span>
-            </div>
-            <div class="glass rounded-full px-3 py-1.5">
-              <span id="fpsLabel" class="font-mono text-[10px] text-white/80">-- fps</span>
-            </div>
-          </div>
-
-          <!-- HUD bottom: capture -->
-          <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between z-10">
-            <button id="toggleMeshBtn" class="glass rounded-full px-3 py-2 text-xs font-medium text-white/80 flex items-center gap-1.5 hover:bg-white/10 transition">
-              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M3 9l6 0M21 15l-6 0M3 21l18 0"/></svg>
-              <span id="meshBtnLabel">Mesh</span>
-            </button>
-            <button id="captureBtn" class="w-14 h-14 rounded-full bg-white flex items-center justify-center transition hover:scale-105 active:scale-95" style="box-shadow:0 0 0 4px rgba(255,255,255,0.15)">
-              <div class="w-11 h-11 rounded-full border-2 border-black/80"></div>
-            </button>
-            <button id="stopBtn" class="glass rounded-full px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/10 transition">
-              Stop
-            </button>
-          </div>
-        </div>
-
-        <!-- Snapshots -->
-        <div class="mt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h4 class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono">Captures</h4>
-            <button id="clearSnapsBtn" class="text-[11px] text-white/40 hover:text-white/70 transition">Clear</button>
-          </div>
-          <div id="snapList" class="grid grid-cols-5 gap-2 min-h-[60px]">
-            <div class="text-xs text-white/30 col-span-5 py-4 text-center">Your captures will appear here. Tap to compare before/after.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Controls -->
-      <div class="lg:col-span-5 space-y-4">
-
-        <!-- Module selector -->
-        <div class="glass p-4">
-          <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">Module</div>
-          <div class="flex flex-wrap gap-2" id="moduleTabs">
-            <button data-mod="hair" class="filter-pill active">💇 Hair</button>
-            <button data-mod="beard" class="filter-pill">🧔 Beard</button>
-            <button data-mod="lipstick" class="filter-pill">💄 Lipstick</button>
-            <button data-mod="eyeshadow" class="filter-pill">👁 Eye</button>
-            <button data-mod="glasses" class="filter-pill">👓 Glasses</button>
-            <button data-mod="skin" class="filter-pill">✨ Skin AI</button>
-          </div>
-        </div>
-
-        <!-- Module panels -->
-        <div class="glass p-4" id="panelHair">
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono">Hairstyle</div>
-            <div class="flex items-center gap-2 text-[11px] text-white/40">
-              <span>Color</span>
-              <input type="color" id="hairColor" value="#1a1a1a" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0" />
-            </div>
-          </div>
-          <div class="grid grid-cols-4 gap-2" id="hairGrid"></div>
-        </div>
-
-        <div class="glass p-4 hidden" id="panelBeard">
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono">Beard</div>
-            <div class="flex items-center gap-2 text-[11px] text-white/40">
-              <span>Color</span>
-              <input type="color" id="beardColor" value="#2a1a10" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0" />
-            </div>
-          </div>
-          <div class="grid grid-cols-3 gap-2" id="beardGrid"></div>
-          <div class="mt-4">
-            <div class="flex items-center justify-between text-xs mb-1.5">
-              <span class="text-white/55">Density</span>
-              <span id="beardDensityVal" class="font-mono text-white/40">70%</span>
-            </div>
-            <input type="range" id="beardDensity" min="20" max="100" value="70" />
-          </div>
-        </div>
-
-        <div class="glass p-4 hidden" id="panelLipstick">
-          <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">Lipstick shade</div>
-          <div class="grid grid-cols-6 gap-2" id="lipGrid"></div>
-          <div class="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <div class="flex items-center justify-between text-xs mb-1.5">
-                <span class="text-white/55">Opacity</span>
-                <span id="lipOpacityVal" class="font-mono text-white/40">85%</span>
-              </div>
-              <input type="range" id="lipOpacity" min="20" max="100" value="85" />
-            </div>
-            <div>
-              <div class="flex items-center justify-between text-xs mb-1.5">
-                <span class="text-white/55">Gloss</span>
-                <span id="lipGlossVal" class="font-mono text-white/40">30%</span>
-              </div>
-              <input type="range" id="lipGloss" min="0" max="100" value="30" />
-            </div>
-          </div>
-          <div class="mt-3 flex items-center justify-between">
-            <span class="text-xs text-white/55">Custom shade</span>
-            <input type="color" id="lipCustom" value="#9b2d5b" class="w-7 h-7 rounded cursor-pointer border-0 bg-transparent p-0" />
-          </div>
-        </div>
-
-        <div class="glass p-4 hidden" id="panelEyeshadow">
-          <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">Eye palette</div>
-          <div class="grid grid-cols-4 gap-2" id="eyeGrid"></div>
-          <div class="mt-4">
-            <div class="flex items-center justify-between text-xs mb-1.5">
-              <span class="text-white/55">Intensity</span>
-              <span id="eyeIntensityVal" class="font-mono text-white/40">60%</span>
-            </div>
-            <input type="range" id="eyeIntensity" min="20" max="100" value="60" />
-          </div>
-          <div class="mt-3 flex items-center justify-between">
-            <span class="text-xs text-white/55">Eyeliner</span>
-            <div id="linerToggle" class="toggle"></div>
-          </div>
-        </div>
-
-        <div class="glass p-4 hidden" id="panelGlasses">
-          <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">Frame</div>
-          <div class="grid grid-cols-3 gap-2" id="glassesGrid"></div>
-          <div class="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <div class="flex items-center justify-between text-xs mb-1.5">
-                <span class="text-white/55">Frame color</span>
-              </div>
-              <input type="color" id="glassesColor" value="#1a1a1a" class="w-full h-8 rounded cursor-pointer border-0 bg-transparent p-0" />
-            </div>
-            <div>
-              <div class="flex items-center justify-between text-xs mb-1.5">
-                <span class="text-white/55">Lens tint</span>
-                <span id="glassesTintVal" class="font-mono text-white/40">25%</span>
-              </div>
-              <input type="range" id="glassesTint" min="0" max="80" value="25" />
-            </div>
-          </div>
-        </div>
-
-        <div class="glass p-4 hidden" id="panelSkin">
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono">Skin Diagnostic</div>
-            <button id="runSkinBtn" class="btn-primary px-3 py-1.5 text-xs">Run analysis</button>
-          </div>
-          <div id="skinResults" class="space-y-3 text-sm">
-            <div class="text-white/40 text-xs py-6 text-center">Press <span class="text-white">Run analysis</span> to sample skin pixels from your cheek and forehead regions and compute live metrics.</div>
-          </div>
-        </div>
-
-      </div>
+      <button class="icon-btn" id="closeStudio" title="Close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
   </div>
-</section>
 
-<!-- ===== COMPARISON / BEFORE-AFTER ===== -->
-<section id="analysis" class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-    <div class="reveal">
-      <div class="chip mb-5"><span class="dot" style="background:var(--cyan);box-shadow:0 0 8px var(--cyan)"></span>Skin AI</div>
-      <h2 class="font-display font-700 text-4xl sm:text-5xl mb-5">A dermatologist-grade<br/><span class="grad-text-2">read-out in 2 seconds.</span></h2>
-      <p class="text-white/60 mb-8 leading-relaxed">Ankit samples skin pixels from anatomically-correct cheek and forehead regions defined by the face mesh, then computes six clinical-style metrics. The output powers product recommendations — your client sees their skin type, you see a lead.</p>
-      <div class="space-y-4">
-        <div class="flex items-start gap-4">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(34,211,238,0.15)"><span class="text-cyan-300 text-sm font-mono">01</span></div>
-          <div>
-            <div class="font-semibold text-sm">ITA° skin tone classification</div>
-            <div class="text-white/50 text-xs mt-0.5">Categorises into 6 Fitzpatrick-adjacent groups for shade matching.</div>
-          </div>
-        </div>
-        <div class="flex items-start gap-4">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(236,72,153,0.15)"><span class="text-pink-300 text-sm font-mono">02</span></div>
-          <div>
-            <div class="font-semibold text-sm">Evenness &amp; texture</div>
-            <div class="text-white/50 text-xs mt-0.5">Local variance across cheek samples estimates texture uniformity.</div>
-          </div>
-        </div>
-        <div class="flex items-start gap-4">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(251,191,36,0.15)"><span class="text-amber-300 text-sm font-mono">03</span></div>
-          <div>
-            <div class="font-semibold text-sm">Redness &amp; under-eye index</div>
-            <div class="text-white/50 text-xs mt-0.5">A* channel deviation + periorbital luminance for dark-circle score.</div>
-          </div>
-        </div>
-      </div>
+  <div class="stage" id="stage">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="flash" id="flash"></div>
+    <div class="badge-fps" id="fps">—</div>
+    <div class="stage-hint" id="stageHint">
+      <div class="camic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+      <h3 style="font-size:20px;margin-bottom:8px">Camera access needed</h3>
+      <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:18px">We only turn on the camera when you tap below. Video is processed on your device and never uploaded.</p>
+      <button class="btn btn-primary" id="startCam">Allow camera &amp; start</button>
+      <p style="color:var(--muted);font-size:12px;margin-top:14px">Tip: works best in Chrome/Safari over https.</p>
     </div>
-
-    <div class="reveal">
-      <div class="glass-strong rounded-3xl p-5">
-        <div class="flex items-center justify-between mb-4">
-          <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono">Sample report</div>
-          <div class="chip"><span class="dot"></span>Live</div>
-        </div>
-        <div class="space-y-4">
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Overall score</span><span id="rptOverall" class="font-mono">87</span></div>
-            <div class="skin-bar"><div style="width:87%;background:var(--grad-1)"></div></div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Hydration proxy</span><span id="rptHydra" class="font-mono">72</span></div>
-            <div class="skin-bar"><div style="width:72%;background:var(--grad-2)"></div></div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Evenness</span><span id="rptEven" class="font-mono">81</span></div>
-            <div class="skin-bar"><div style="width:81%;background:var(--grad-3)"></div></div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Brightness</span><span id="rptBright" class="font-mono">76</span></div>
-            <div class="skin-bar"><div style="width:76%;background:linear-gradient(90deg,#22d3ee,#fbbf24)"></div></div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Redness (lower=better)</span><span id="rptRed" class="font-mono">22</span></div>
-            <div class="skin-bar"><div style="width:22%;background:#ef4444"></div></div>
-          </div>
-          <div>
-            <div class="flex items-center justify-between text-xs mb-1.5"><span class="text-white/70">Dark circle index</span><span id="rptDark" class="font-mono">31</span></div>
-            <div class="skin-bar"><div style="width:31%;background:#6366f1"></div></div>
-          </div>
-          <div class="pt-3 border-t border-white/10 grid grid-cols-2 gap-3 text-xs">
-            <div><div class="text-white/50">Skin tone (ITA°)</div><div id="rptITA" class="font-semibold mt-0.5">42.3 · Light</div></div>
-            <div><div class="text-white/50">Recommendation</div><div id="rptRec" class="font-semibold mt-0.5 text-pink-300">Hydrating serum</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div class="hold-hint" id="holdHint" style="display:none">Hold anywhere to see the original</div>
+    <div class="loader" id="loader"><div><div class="spin"></div><div id="loaderText">Loading AI models…</div></div></div>
   </div>
-</section>
 
-<!-- ===== BUSINESS ===== -->
-<section id="business" class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="max-w-7xl mx-auto">
-    <div class="text-center mb-16 reveal">
-      <div class="chip mb-5"><span class="dot"></span>White-label ready</div>
-      <h2 class="font-display font-700 text-4xl sm:text-5xl lg:text-6xl">Sell it as <span class="grad-text">your own.</span></h2>
-      <p class="mt-5 text-white/60 max-w-2xl mx-auto">Three deployment shapes. Pick the one that matches your business model — from a one-off license for a single salon to a fully white-labeled SaaS for a beauty chain.</p>
-    </div>
+  <div class="dock" id="dock" style="display:none">
+    <div class="tabs" id="tabs"></div>
+    <div class="panel-body">
+      <div id="presetGrid"></div>
+      <div id="swatchWrap"><div class="swatches" id="swatches"></div></div>
+      <div class="controls-row" id="controlsRow"></div>
 
-    <div class="grid md:grid-cols-3 gap-5">
-      <div class="glass p-6 float-card reveal">
-        <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">01 · Embed</div>
-        <h3 class="font-display font-600 text-xl mb-2">Drop-in widget</h3>
-        <p class="text-sm text-white/55 leading-relaxed mb-5">One script tag on your existing website. Floating "Try it on" button opens Ankit in a modal. Your logo, your colors, your domain.</p>
-        <div class="font-mono text-[11px] text-white/40 bg-black/30 rounded-lg p-3 overflow-x-auto">
-&lt;script src="ankit.js"<br/>&nbsp;&nbsp;data-brand="YourBrand"&gt;&lt;/script&gt;
+      <!-- skin report -->
+      <div class="skin-report" id="skinReport">
+        <div class="skin-score">
+          <div class="ring" id="skinRing"><span id="skinScoreVal">–</span></div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:16px" id="skinVerdict">Tap &ldquo;Analyze&rdquo; to scan</div>
+            <div style="font-size:13px;color:var(--muted)" id="skinSub">On-device estimate of skin metrics</div>
+          </div>
+          <button class="btn btn-primary" id="analyzeBtn" style="padding:11px 18px">Analyze</button>
         </div>
+        <div id="skinMetrics"></div>
+        <div class="disclaimer">Note: demo estimate from live pixels for engagement — not a medical or dermatological assessment.</div>
       </div>
-      <div class="glass p-6 float-card reveal">
-        <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">02 · License</div>
-        <h3 class="font-display font-600 text-xl mb-2">Single-client app</h3>
-        <p class="text-sm text-white/55 leading-relaxed mb-5">A standalone progressive web app branded end-to-end for one client. Custom hairstyles, brand colors, booking integration. Ship to their domain in a week.</p>
-        <ul class="text-xs text-white/60 space-y-1.5">
-          <li>· Custom filter library</li>
-          <li>· Booking / checkout hooks</li>
-          <li>· PWA installable</li>
-          <li>· Quarterly content updates</li>
-        </ul>
-      </div>
-      <div class="glass p-6 float-card reveal">
-        <div class="text-xs uppercase tracking-[0.2em] text-white/40 font-mono mb-3">03 · Platform</div>
-        <h3 class="font-display font-600 text-xl mb-2">Multi-tenant SaaS</h3>
-        <p class="text-sm text-white/55 leading-relaxed mb-5">Resell Ankit to a portfolio of salons across the Netherlands and EU. Per-tenant dashboard, billing, GDPR data registry, DPA template included.</p>
-        <ul class="text-xs text-white/60 space-y-1.5">
-          <li>· Per-tenant branding</li>
-          <li>· Stripe / Mollie billing</li>
-          <li>· EU data residency options</li>
-          <li>· DPA + processor terms</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- ===== PRICING ===== -->
-<section id="pricing" class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="max-w-7xl mx-auto">
-    <div class="text-center mb-16 reveal">
-      <div class="chip mb-5"><span class="dot"></span>Pricing</div>
-      <h2 class="font-display font-700 text-4xl sm:text-5xl lg:text-6xl">Start small. <span class="grad-text">Scale to a chain.</span></h2>
-    </div>
-    <div class="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-      <div class="glass p-7 reveal">
-        <div class="text-sm text-white/50 mb-1">Solo</div>
-        <div class="flex items-baseline gap-1 mb-4"><span class="font-display font-700 text-4xl">€49</span><span class="text-white/40 text-sm">/mo</span></div>
-        <p class="text-sm text-white/55 mb-5">For a single independent salon or barber.</p>
-        <ul class="text-sm text-white/70 space-y-2.5 mb-6">
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>1 branded domain</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>All 6 modules</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Up to 500 sessions/mo</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Email support</li>
-        </ul>
-        <button class="btn-ghost w-full py-3 text-sm">Start Solo</button>
-      </div>
-      <div class="glass-strong p-7 reveal relative" style="box-shadow:0 30px 80px -30px rgba(236,72,153,0.5)">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 chip" style="background:var(--grad-1);border:none;color:white">Most popular</div>
-        <div class="text-sm text-white/50 mb-1">Studio</div>
-        <div class="flex items-baseline gap-1 mb-4"><span class="font-display font-700 text-4xl">€149</span><span class="text-white/40 text-sm">/mo</span></div>
-        <p class="text-sm text-white/55 mb-5">For a 2–5 location beauty business.</p>
-        <ul class="text-sm text-white/70 space-y-2.5 mb-6">
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>5 branded domains</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Custom filter library</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Unlimited sessions</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Booking integration</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Priority support</li>
-        </ul>
-        <button class="btn-primary w-full py-3 text-sm">Start Studio</button>
-      </div>
-      <div class="glass p-7 reveal">
-        <div class="text-sm text-white/50 mb-1">Platform</div>
-        <div class="flex items-baseline gap-1 mb-4"><span class="font-display font-700 text-4xl">Custom</span></div>
-        <p class="text-sm text-white/55 mb-5">Resell to a portfolio of salons / brands.</p>
-        <ul class="text-sm text-white/70 space-y-2.5 mb-6">
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Multi-tenant dashboard</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Per-tenant billing</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>EU data residency</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>DPA + processor terms</li>
-          <li class="flex gap-2"><span class="text-pink-300">✓</span>Dedicated engineer</li>
-        </ul>
-        <button class="btn-ghost w-full py-3 text-sm">Talk to us</button>
+      <div class="action-bar" id="actionBar">
+        <button class="icon-btn" id="resetBtn" title="Reset looks" aria-label="Reset">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <button class="icon-btn" id="recBtn" title="Record video" aria-label="Record video">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/></svg>
+        </button>
+        <button class="shutter" id="shutter" title="Capture photo" aria-label="Capture photo"></button>
+        <button class="icon-btn" id="dlBtn" title="Download" aria-label="Download photo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+        </button>
+        <button class="icon-btn" id="shareBtn" title="Share" aria-label="Share">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        </button>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- ===== CTA ===== -->
-<section class="py-24 px-4 sm:px-6 lg:px-10 relative">
-  <div class="max-w-5xl mx-auto glass-strong rounded-3xl p-10 sm:p-14 text-center relative overflow-hidden reveal">
-    <div class="mesh-bg opacity-60"></div>
-    <div class="relative z-10">
-      <h2 class="font-display font-700 text-3xl sm:text-5xl mb-5">Bring your salon<br/><span class="grad-text">into the browser era.</span></h2>
-      <p class="text-white/60 max-w-xl mx-auto mb-8">Spin up a fully branded Ankit studio in under a week. Built on-device. Built for Europe. Built to sell.</p>
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <a href="#studio" class="btn-primary px-7 py-3.5 text-sm sm:text-base">Try the live demo</a>
-        <a href="#pricing" class="btn-ghost px-7 py-3.5 text-sm sm:text-base">See pricing</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== FOOTER ===== -->
-<footer class="py-12 px-4 sm:px-6 lg:px-10 border-t border-white/5">
-  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--grad-1)">
-        <svg viewBox="0 0 24 24" class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.39 7.36H22l-6.19 4.5L18.2 21 12 16.5 5.8 21l2.39-7.14L2 9.36h7.61z" stroke-linejoin="round"/></svg>
-      </div>
-      <span class="font-display font-600">Ankit</span>
-      <span class="text-xs text-white/30 font-mono">v2.4 · on-device</span>
-    </div>
-    <div class="text-xs text-white/40">© <span id="year"></span> Ankit AI Studio. All processing happens in your browser. GDPR-ready.</div>
-  </div>
-</footer>
-
-<!-- ===== Toast ===== -->
-<div id="toast"></div>
-
-<!-- ===== COMPARE MODAL ===== -->
-<div id="compareModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-  <div class="glass-strong rounded-3xl p-5 max-w-md w-full">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-display font-600 text-lg">Before / After</h3>
-      <button id="closeCompare" class="text-white/50 hover:text-white text-xl">✕</button>
-    </div>
-    <div class="compare-wrap" id="compareWrap">
-      <img id="compareBefore" src="" alt="before" />
-      <img id="compareAfter" src="" alt="after" style="clip-path: inset(0 0 0 50%)" />
-      <div class="compare-handle" id="compareHandle" style="left:50%"></div>
-    </div>
-    <div class="mt-3 text-xs text-white/40 text-center">Drag handle to compare</div>
   </div>
 </div>
 
-<script>
-/* =====================================================================
-   ANKIT · AI BEAUTY & GROOMING STUDIO
-   Single-file, on-device, MediaPipe FaceMesh + Canvas overlays.
-   ===================================================================== */
+<div class="toast" id="toast"></div>
 
-document.getElementById('year').textContent = new Date().getFullYear();
+<script type="module">
+import {
+  FaceLandmarker, ImageSegmenter, FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20/vision_bundle.mjs";
 
-/* ---------- Utility ---------- */
-const $ = (s, p=document) => p.querySelector(s);
-const $$ = (s, p=document) => Array.from(p.querySelectorAll(s));
-function toast(msg, ms=2400) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), ms);
+const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20/wasm";
+const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const SEG_MODEL  = "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite";
+// seg categories: 0 background, 1 hair, 2 body-skin, 3 face-skin, 4 clothes, 5 accessories
+
+/* ---------------- white-label ---------------- */
+const params = new URLSearchParams(location.search);
+function setBrand(name, accent, logo){
+  if(name){ ["brandName","brandName2","brandName3"].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=name;});
+    document.title = name + " — AR Try-On Studio";
+    const initial=name.trim().charAt(0).toUpperCase()||"A";
+    ["brandMark","brandMark2","brandMark3"].forEach(id=>{const e=document.getElementById(id); if(e&&!logo)e.textContent=initial;});
+  }
+  if(accent){ const light = mix(accent,"#ffffff",.4);
+    document.documentElement.style.setProperty("--accent",accent);
+    document.documentElement.style.setProperty("--accent-2",light);
+    document.documentElement.style.setProperty("--accent-ink", isLight(accent)?"#1a1400":"#1a1400");
+  }
+  if(logo){ ["brandMark","brandMark2","brandMark3"].forEach(id=>{const e=document.getElementById(id); if(e){e.innerHTML=`<img src="${logo}" alt="logo"/>`;}}); }
 }
+function isLight(hex){const {r,g,b}=hx(hex);return (r*299+g*587+b*114)/1000>150;}
+function hx(hex){hex=hex.replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');return {r:parseInt(hex.slice(0,2),16),g:parseInt(hex.slice(2,4),16),b:parseInt(hex.slice(4,6),16)};}
+function mix(a,b,t){const A=hx(a),B=hx(b);const r=Math.round(A.r+(B.r-A.r)*t),g=Math.round(A.g+(B.g-A.g)*t),bl=Math.round(A.b+(B.b-A.b)*t);return `#${[r,g,bl].map(x=>x.toString(16).padStart(2,'0')).join('')}`;}
+setBrand(params.get("brand"), params.get("accent"), params.get("logo"));
+if(params.get("brand")) document.getElementById("wlName").value=params.get("brand");
+if(params.get("accent")) document.getElementById("wlColor").value=params.get("accent");
+window.applyWhiteLabel=()=>{ setBrand(document.getElementById("wlName").value, document.getElementById("wlColor").value, null); toast("Theme applied — this is what your client sees"); };
 
-/* ---------- Reveal on scroll ---------- */
-const io = new IntersectionObserver((es) => {
-  es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-}, { threshold: 0.12 });
-$$('.reveal').forEach(el => io.observe(el));
-
-/* ---------- Hero canvas (animated face mesh placeholder) ---------- */
-(function heroAnim(){
-  const c = $('#heroCanvas'); if (!c) return;
-  const ctx = c.getContext('2d');
-  let w, h, dpr = Math.min(window.devicePixelRatio || 1, 2);
-  function resize(){ const r = c.getBoundingClientRect(); w = c.width = r.width*dpr; h = c.height = r.height*dpr; }
-  resize(); window.addEventListener('resize', resize);
-
-  // Generate synthetic face-ish point cloud
-  const pts = [];
-  for (let i=0;i<140;i++){
-    const a = Math.random()*Math.PI*2;
-    const r = Math.pow(Math.random(),0.6) * Math.min(w,h)*0.38;
-    pts.push({ x: w/2 + Math.cos(a)*r*0.78, y: h*0.55 + Math.sin(a)*r, base: r });
-  }
-  // Add some "feature" points (eyes, mouth)
-  const eyes = [{x:w*0.4,y:h*0.45},{x:w*0.6,y:h*0.45}];
-  const mouth = [];
-  for (let i=0;i<14;i++){ const a = (i/14)*Math.PI*2; mouth.push({x:w/2+Math.cos(a)*w*0.07, y:h*0.62+Math.sin(a)*h*0.04}); }
-
-  let t = 0;
-  function frame(){
-    t += 0.012;
-    ctx.fillStyle = 'rgba(10,10,15,0.18)';
-    ctx.fillRect(0,0,w,h);
-
-    // points
-    pts.forEach((p,i)=>{
-      const ox = Math.sin(t*1.3 + i*0.2)*1.5*dpr;
-      const oy = Math.cos(t*1.1 + i*0.15)*1.5*dpr;
-      const alpha = 0.3 + 0.4*Math.sin(t*0.8 + i*0.3);
-      ctx.beginPath();
-      ctx.arc(p.x+ox, p.y+oy, 1.1*dpr, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(236,72,153,${alpha})`;
-      ctx.fill();
-    });
-    // eyes
-    eyes.forEach(e=>{
-      const x = e.x + Math.sin(t)*1.5*dpr;
-      ctx.beginPath(); ctx.arc(x, e.y, 4*dpr, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(34,211,238,0.9)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(x, e.y, 8*dpr, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(34,211,238,0.3)'; ctx.lineWidth = 1*dpr; ctx.stroke();
-    });
-    // mouth
-    ctx.beginPath();
-    mouth.forEach((p,i)=>{ i===0 ? ctx.moveTo(p.x, p.y+Math.sin(t+i)*dpr) : ctx.lineTo(p.x, p.y+Math.sin(t+i)*dpr); });
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(236,72,153,0.7)'; ctx.lineWidth = 1.5*dpr; ctx.stroke();
-
-    requestAnimationFrame(frame);
-  }
-  frame();
+/* generate a soft demo face for the hero (no external asset) */
+(function heroFace(){
+  const c=document.createElement('canvas');c.width=400;c.height=700;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,700);g.addColorStop(0,'#3a3140');g.addColorStop(1,'#17141c');x.fillStyle=g;x.fillRect(0,0,400,700);
+  const gg=x.createRadialGradient(200,300,40,200,320,260);gg.addColorStop(0,'#c9a07f');gg.addColorStop(1,'rgba(201,160,127,0)');x.fillStyle=gg;x.beginPath();x.ellipse(200,320,130,175,0,0,7);x.fill();
+  document.getElementById('heroFace').style.backgroundImage=`url(${c.toDataURL()})`;
 })();
 
-/* =====================================================================
-   FACE MESH LANDMARK HELPERS
-   Indices based on MediaPipe FaceMesh canonical 468-point topology.
-   ===================================================================== */
+/* ---------------- features cards ---------------- */
+const FEATURES=[
+  ["Live hair color","M12 3a6 6 0 00-6 6c0 3 1 4 1 6h10c0-2 1-3 1-6a6 6 0 00-6-6z","Recolor hair in real time using pixel-accurate segmentation — natural shades or bold fashion colors, luminosity preserved."],
+  ["Beard & stubble","M6 5c0 6 2 11 6 13 4-2 6-7 6-13","Overlay full beards, goatees and stubble mapped to the jawline with adjustable density and color."],
+  ["Lipstick & teeth","M4 12c3-3 5-3 8 0 3-3 5-3 8 0-3 4-5 4-8 2-3 2-5 2-8-2z","Matte, gloss or metallic finishes tracked to the lip contour — with one-tap teeth whitening."],
+  ["Eyeshadow & liner","M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z","Eyeshadow and eyeliner drawn to the eyelid landmarks with feathered, natural blending."],
+  ["Eye color / contacts","M12 5a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 100 6 3 3 0 000-6z","Change iris color with live iris tracking — hazel, blue, green, grey, amber and more."],
+  ["Brow tint","M4 13c3-3 13-3 16 0","Fill and recolor eyebrows to match a new hair color or a fuller, groomed look."],
+  ["Blush & glow","M12 20s-7-4-9-9a4 4 0 019-2 4 4 0 019 2c-2 5-9 9-9 9z","Cheek blush plus a highlighter glow placed on facial landmarks that follow head movement."],
+  ["Skin retouch & foundation","M9 3l2 4 4 2-4 2-2 4-2-4-4-2 4-2 2-4z","On-device skin smoothing and foundation tint through hair/skin segmentation for a flawless base."],
+  ["Studio backdrop","M3 5h18v14H3z M3 15l5-5 4 4 3-3 6 6","Blur or replace the background with a clean studio color — instant professional portrait."],
+  ["AI skin analysis","M12 3a9 9 0 109 9 9 9 0 00-9-9zm0 5v4l3 2","Instant on-device read of radiance, evenness, redness and texture — a great lead-capture hook."],
+  ["Photo, video & share","M23 7l-7 5 7 5V7z M1 5h15v14H1z","Capture stills, record video of the live look, then download or share natively from the device."],
+  ["One-tap look presets","M12 2l2.4 6.9H22l-5.8 4.3 2.2 7L12 16l-6.4 4.2 2.2-7L2 8.9h7.6z","Curated combinations — Natural Glam, Bold Night Out, Groomed Gentleman and more — applied instantly."]
+];
+const fg=document.getElementById('featGrid');
+FEATURES.forEach(f=>{fg.insertAdjacentHTML('beforeend',
+  `<div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="${f[1]}"/></svg></div><h3>${f[0]}</h3><p>${f[2]}</p></div>`);
+});
 
-// Lips (outer + inner)
-const LIP_OUTER = [61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146];
-const LIP_INNER = [78,191,80,81,82,13,312,311,310,415,308,324,318,402,317,14,87,178,88,95];
+/* ---------------- nav scroll ---------------- */
+addEventListener('scroll',()=>document.getElementById('nav').classList.toggle('scrolled',scrollY>20));
 
-// Left eye (subject's left = screen right since video is mirrored, but indices are anatomical)
-const LEFT_EYE = [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246];
-const RIGHT_EYE = [362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398];
-const LEFT_EYE_IRIS = [468,469,470,471,472]; // requires refineLandmarks
-const RIGHT_EYE_IRIS = [473,474,475,476,477];
+/* ---------------- toast ---------------- */
+let tT;const toastEl=document.getElementById('toast');
+function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>toastEl.classList.remove('show'),2600);}
 
-// Eyebrows
-const LEFT_BROW = [70,63,105,66,107,55,65,52,53,46];
-const RIGHT_BROW = [300,293,334,296,336,285,295,282,283,276];
+/* ================= STUDIO LOGIC ================= */
+const studio=document.getElementById('studio');
+const video=document.getElementById('video');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d',{willReadFrequently:true});
+const stageHint=document.getElementById('stageHint');
+const loader=document.getElementById('loader');
+const loaderText=document.getElementById('loaderText');
+const dock=document.getElementById('dock');
+const fpsEl=document.getElementById('fps');
+const flash=document.getElementById('flash');
 
-// Face oval (for hair region boundary)
-const FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+let faceLandmarker=null, segmenter=null, running=false, facing='user';
+let stream=null, lastVideoTime=-1, rafId=null;
+let holding=false;          // press-and-hold to show original
+let analyzing=false;        // pause loop segmentation during skin scan
 
-// Cheek sample centers (for skin analysis)
-const LEFT_CHEEK = 50;
-const RIGHT_CHEEK = 280;
-const FOREHEAD = 10;
-const CHIN = 152;
-const NOSE_TIP = 1;
-const UNDER_EYE_L = 143;
-const UNDER_EYE_R = 372;
+window.openStudio=()=>{studio.classList.add('open');studio.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';};
+function closeStudio(){studio.classList.remove('open');studio.setAttribute('aria-hidden','true');document.body.style.overflow='';stopCam();}
+document.getElementById('closeStudio').onclick=closeStudio;
 
-/* Convert landmarks to path string */
-function landmarksToPath(ctx, lms, indices, close=true){
-  ctx.beginPath();
-  indices.forEach((idx,i)=>{
-    const p = lms[idx]; if (!p) return;
-    if (i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+/* ---- looks state ---- */
+const looks={};
+function resetLooks(){
+  looks.lips={color:null,intensity:.55,finish:'matte',teeth:false,liner:false};
+  looks.hair={color:null,intensity:.8,highlights:null,shine:false};
+  looks.brows={color:null,intensity:.6,thickness:.5};
+  looks.eyes={color:null,intensity:.5,liner:false,mascara:false};
+  looks.contacts={color:null,intensity:.6};
+  looks.blush={color:null,intensity:.4};
+  looks.beard={color:null,intensity:.6,style:'full'};
+  looks.sculpt={contour:0,bronzer:0,highlighter:0,concealer:0};
+  looks.retouch={smooth:0,glow:0,foundation:null,foundationAmt:.4};
+  looks.bg={mode:'none',color:'#12121a',blur:14};
+  looks.filter={lut:'none',vignette:false};
+  looks.acc={glasses:null,frame:'#1a1a1e',earrings:null,gems:null};
+  looks.fun={freckles:false};
+}
+resetLooks();
+let activeTab='presets';
+
+const PALETTES={
+  lips:[['Classic Red','#c1272d'],['Ruby','#9b1b30'],['Coral','#f0605d'],['Rose','#c76b7a'],['Nude','#b3766a'],['Berry','#7c2b47'],['Mauve','#a6647a'],['Plum','#5e2a4d'],['Brick','#a84632']],
+  hair:[['Jet Black','#141013'],['Espresso','#3b2417'],['Chestnut','#6a3d21'],['Auburn','#8a3b1e'],['Honey','#b07a3b'],['Blonde','#c9a860'],['Platinum','#d9cdb8'],['Ash','#8f8577'],['Burgundy','#5c1a2b'],['Rose Gold','#c98a7a'],['Electric Blue','#2f6bd4'],['Violet','#7a3fb0'],['Emerald','#1f7a5a']],
+  beard:[['Black','#1c1614'],['Dark Brown','#3a271b'],['Brown','#5a3b26'],['Auburn','#7a3f24'],['Blonde','#9a7245'],['Salt & Pepper','#6b6058'],['Grey','#9a938a']],
+  brows:[['Soft Brown','#5a3b26'],['Taupe','#6e5844'],['Dark Brown','#3a271b'],['Black','#1c1614'],['Auburn','#7a3f24'],['Blonde','#9a7245'],['Grey','#8a837a']],
+  blush:[['Peach','#f0a487'],['Rose','#e08497'],['Coral','#f28b6d'],['Berry','#c65c86'],['Warm','#e0795e']],
+  eyes:[['Bronze','#8a5a32'],['Copper','#a45b34'],['Smoke','#4a4450'],['Plum','#6b3a63'],['Emerald','#2f6f52'],['Navy','#2c3e6b'],['Gold','#b58a3a'],['Taupe','#8a7566']],
+  contacts:[['Hazel','#8a5a32'],['Amber','#b5762a'],['Honey','#c89a4a'],['Emerald','#1f7a5a'],['Ocean Blue','#2f6bd4'],['Sky','#5aa6d6'],['Grey','#7d8896'],['Violet','#7a3fb0'],['Jade','#2f9e7a']],
+  foundation:[['Porcelain','#f2d9c4'],['Ivory','#e9c6a8'],['Beige','#d9ab86'],['Sand','#c9986e'],['Tan','#b07d54'],['Caramel','#8f5f3a'],['Espresso','#5e3d28']],
+};
+const BG_COLORS=[['Charcoal','#12121a'],['Soft Grey','#3a3a44'],['Warm Beige','#c9b79b'],['Rose','#c98a8a'],['Teal','#1f6b6b'],['Royal Blue','#22357a'],['Emerald','#1f6b4a'],['White','#eceae6']];
+
+const TABS=[
+  ['presets','Looks','M12 2l2.4 6.9H22l-5.8 4.3 2.2 7L12 16l-6.4 4.2 2.2-7L2 8.9h7.6z'],
+  ['lips','Lips','M4 12c3-3 5-3 8 0 3-3 5-3 8 0-3 4-5 4-8 2-3 2-5 2-8-2z'],
+  ['hair','Hair','M12 3a6 6 0 00-6 6c0 3 1 4 1 6h10c0-2 1-3 1-6a6 6 0 00-6-6z'],
+  ['brows','Brows','M4 13c3-3 13-3 16 0'],
+  ['eyes','Eyes','M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z'],
+  ['contacts','Eye Color','M12 5a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 100 6 3 3 0 000-6z'],
+  ['blush','Blush','M12 20s-7-4-9-9a4 4 0 019-2 4 4 0 019 2c-2 5-9 9-9 9z'],
+  ['beard','Beard','M6 5c0 6 2 11 6 13 4-2 6-7 6-13'],
+  ['retouch','Retouch','M9 3l2 4 4 2-4 2-2 4-2-4-4-2 4-2 2-4z'],
+  ['bg','Backdrop','M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6'],
+  ['skin','Skin AI','M12 3a9 9 0 109 9 9 9 0 00-9-9zm0 5v4l3 2'],
+];
+const tabsEl=document.getElementById('tabs');
+TABS.forEach(t=>{tabsEl.insertAdjacentHTML('beforeend',
+  `<div class="tab ${t[0]===activeTab?'active':''}" data-tab="${t[0]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="${t[2]}"/></svg>${t[1]}</div>`);
+});
+tabsEl.querySelectorAll('.tab').forEach(el=>el.onclick=()=>selectTab(el.dataset.tab));
+
+const swWrap=document.getElementById('swatchWrap');
+const swatches=document.getElementById('swatches');
+const controlsRow=document.getElementById('controlsRow');
+const skinReport=document.getElementById('skinReport');
+const presetGrid=document.getElementById('presetGrid');
+
+/* ---------------- presets ---------------- */
+const PRESETS=[
+  ['Natural Glam','Soft rosy everyday',{lips:{color:'#c76b7a',intensity:.5,finish:'gloss'},blush:{color:'#e08497',intensity:.35},eyes:{color:'#8a7566',intensity:.4},brows:{color:'#5a3b26',intensity:.5},retouch:{smooth:.35,glow:.3}}],
+  ['Bold Night Out','Deep lip + smoky eye',{lips:{color:'#9b1b30',intensity:.7,finish:'matte'},eyes:{color:'#4a4450',intensity:.6,liner:true},blush:{color:'#c65c86',intensity:.4},brows:{color:'#3a271b',intensity:.6}}],
+  ['Fresh Face','Dewy, minimal makeup',{retouch:{smooth:.45,glow:.35},lips:{color:'#b3766a',intensity:.35,finish:'gloss'},blush:{color:'#f0a487',intensity:.3}}],
+  ['Groomed Gentleman','Beard + brow + smooth',{beard:{color:'#3a271b',intensity:.6},brows:{color:'#3a271b',intensity:.4},retouch:{smooth:.3}}],
+  ['Fashion Color','Blue hair, coral lip',{hair:{color:'#2f6bd4',intensity:.85},lips:{color:'#f0605d',intensity:.5,finish:'gloss'}}],
+  ['Studio Portrait','Blur backdrop + retouch',{bg:{mode:'blur'},retouch:{smooth:.4,glow:.3},lips:{color:'#c76b7a',intensity:.4}}],
+];
+PRESETS.forEach((p,i)=>presetGrid.insertAdjacentHTML('beforeend',
+  `<button class="preset" data-i="${i}">${p[0]}<small>${p[1]}</small></button>`));
+presetGrid.querySelectorAll('.preset').forEach(b=>b.onclick=()=>applyPreset(PRESETS[b.dataset.i][2]));
+function applyPreset(cfg){
+  resetLooks();
+  for(const k in cfg) Object.assign(looks[k],cfg[k]);
+  if(looks.hair.color||looks.retouch.smooth>0||looks.retouch.foundation||looks.bg.mode!=='none') ensureSegmenter();
+  toast('Look applied');
+}
+
+/* ---------------- tab / control rendering ---------------- */
+function currentColor(tab){return tab==='retouch'?looks.retouch.foundation:looks[tab].color;}
+function setColor(tab,col){if(tab==='retouch')looks.retouch.foundation=col;else looks[tab].color=col;}
+function paletteFor(tab){return tab==='retouch'?PALETTES.foundation:PALETTES[tab];}
+
+function selectTab(tab){
+  activeTab=tab;
+  tabsEl.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));
+  presetGrid.style.display='none';skinReport.classList.remove('show');swWrap.style.display='none';controlsRow.style.display='none';
+  if(tab==='presets'){presetGrid.style.display='grid';return;}
+  if(tab==='skin'){skinReport.classList.add('show');ensureSegmenter();return;}
+  if(tab==='bg'){controlsRow.style.display='flex';renderBgControls();ensureSegmenter();return;}
+  swWrap.style.display='';controlsRow.style.display='flex';
+  renderSwatches(tab);renderControls(tab);
+  if(tab==='hair'||tab==='retouch') ensureSegmenter();
+}
+function renderSwatches(tab){
+  swatches.innerHTML='';
+  const none=document.createElement('div');none.className='sw none'+(currentColor(tab)===null?' active':'');
+  none.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+  none.onclick=()=>{setColor(tab,null);renderSwatches(tab);};
+  swatches.appendChild(none);
+  paletteFor(tab).forEach(([name,col])=>{
+    const s=document.createElement('div');s.className='sw'+(currentColor(tab)===col?' active':'');s.style.background=col;s.title=name;
+    s.onclick=()=>{setColor(tab,col);renderSwatches(tab);};
+    swatches.appendChild(s);
   });
-  if (close) ctx.closePath();
 }
-
-/* Get centroid of landmark group */
-function centroid(lms, indices){
-  let x=0,y=0,n=0;
-  indices.forEach(i=>{ const p=lms[i]; if(p){x+=p.x;y+=p.y;n++;} });
-  return { x: x/n, y: y/n };
+function addSlider(label,val,cb){const sl=document.createElement('label');sl.className='slider';
+  sl.innerHTML=`${label} <input type="range" min="0" max="100" value="${Math.round(val*100)}">`;
+  sl.querySelector('input').oninput=e=>cb(e.target.value/100);controlsRow.appendChild(sl);}
+function addSeg(opts,current,cb){const seg=document.createElement('div');seg.className='seg';
+  opts.forEach(o=>{const b=document.createElement('button');b.textContent=o;b.className=current===o?'on':'';b.onclick=()=>cb(o);seg.appendChild(b);});controlsRow.appendChild(seg);}
+function addToggle(label,on,cb){const seg=document.createElement('div');seg.className='seg';
+  const b=document.createElement('button');b.textContent=label;b.className=on?'on':'';b.style.textTransform='none';b.onclick=cb;seg.appendChild(b);controlsRow.appendChild(seg);}
+function renderControls(tab){
+  controlsRow.innerHTML='';
+  if(tab==='retouch'){
+    addSlider('Smooth',looks.retouch.smooth,v=>looks.retouch.smooth=v);
+    addSlider('Glow',looks.retouch.glow,v=>looks.retouch.glow=v);
+    addSlider('Foundation',looks.retouch.foundationAmt,v=>looks.retouch.foundationAmt=v);
+    return;
+  }
+  addSlider('Intensity',looks[tab].intensity,v=>looks[tab].intensity=v);
+  if(tab==='lips'){
+    addSeg(['matte','gloss','metallic'],looks.lips.finish,f=>{looks.lips.finish=f;renderControls(tab);});
+    addToggle('Whiten teeth',looks.lips.teeth,()=>{looks.lips.teeth=!looks.lips.teeth;renderControls(tab);});
+  }
+  if(tab==='eyes'){addToggle('Eyeliner',looks.eyes.liner,()=>{looks.eyes.liner=!looks.eyes.liner;renderControls(tab);});}
 }
+function renderBgControls(){
+  controlsRow.innerHTML='';
+  addSeg(['none','blur','color'],looks.bg.mode,m=>{looks.bg.mode=m;renderBgControls();});
+  if(looks.bg.mode==='blur'){addSlider('Blur',looks.bg.blur/40,v=>looks.bg.blur=Math.max(2,Math.round(v*40)));}
+  if(looks.bg.mode==='color'){
+    const wrap=document.createElement('div');wrap.className='swatches';wrap.style.width='100%';
+    BG_COLORS.forEach(([n,c])=>{const s=document.createElement('div');s.className='sw'+(looks.bg.color===c?' active':'');s.style.background=c;s.title=n;s.onclick=()=>{looks.bg.color=c;renderBgControls();};wrap.appendChild(s);});
+    controlsRow.appendChild(wrap);
+  }
+}
+selectTab('presets');
 
-/* Distance */
-function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-
-/* =====================================================================
-   STATE
-   ===================================================================== */
-const state = {
-  faceMesh: null,
-  camera: null,
-  video: null,
-  canvas: null,
-  ctx: null,
-  running: false,
-  latestLandmarks: null,
-  showMesh: false,
-  module: 'hair',
-  // hair
-  hairStyle: 'classic',
-  hairColor: '#1a1a1a',
-  // beard
-  beardStyle: 'full',
-  beardColor: '#2a1a10',
-  beardDensity: 0.7,
-  // lipstick
-  lipShade: '#9b2d5b',
-  lipOpacity: 0.85,
-  lipGloss: 0.3,
-  // eye
-  eyeColor: '#7c3aed',
-  eyeIntensity: 0.6,
-  eyeliner: false,
-  // glasses
-  glassesStyle: 'round',
-  glassesColor: '#1a1a1a',
-  glassesTint: 0.25,
-  // fps
-  lastFrame: performance.now(),
-  fpsEMA: 0,
-  // snapshots
-  snapshots: [],  // {dataUrl, ts}
-  // before snapshot (for compare)
-  beforeSnap: null,
+/* ---------- reset ---------- */
+document.getElementById('resetBtn').onclick=()=>{
+  resetLooks();
+  if(activeTab==='bg')renderBgControls();
+  else if(activeTab!=='skin'&&activeTab!=='presets')renderSwatches(activeTab),renderControls(activeTab);
+  toast('Looks reset');
 };
 
-/* =====================================================================
-   FILTER LIBRARIES
-   ===================================================================== */
+/* ---------- camera ---------- */
+document.getElementById('startCam').onclick=startCam;
+document.getElementById('flipBtn').onclick=()=>{facing=facing==='user'?'environment':'user';if(running){stopStream();openStream();}};
 
-const HAIRSTYLES = [
-  { id:'classic', name:'Classic',  draw: drawHairClassic },
-  { id:'fade',    name:'Fade',     draw: drawHairFade },
-  { id:'slick',   name:'Slick',    draw: drawHairSlick },
-  { id:'curl',    name:'Curls',    draw: drawHairCurls },
-  { id:'bob',     name:'Bob',      draw: drawHairBob },
-  { id:'top',     name:'Top knot', draw: drawHairTop },
-  { id:'wave',    name:'Waves',    draw: drawHairWave },
-  { id:'buzz',    name:'Buzz',     draw: drawHairBuzz },
-];
-
-const BEARDS = [
-  { id:'full',     name:'Full',     draw: drawBeardFull },
-  { id:'goatee',   name:'Goatee',   draw: drawBeardGoatee },
-  { id:'stubble',  name:'Stubble',  draw: drawBeardStubble },
-  { id:'van',      name:'Van Dyke', draw: drawBeardVan },
-  { id:'mutton',   name:'Mutton',   draw: drawBeardMutton },
-  { id:'horseshoe',name:'Horseshoe',draw: drawBeardHorseshoe },
-];
-
-const LIPSTICK_SHADES = [
-  '#9b2d5b','#c2185b','#e91e63','#f06292',
-  '#ad1457','#880e4f','#ff4d6d','#d6336c',
-  '#6b0f1a','#7d2230','#b8302f','#a8324d'
-];
-
-const EYE_PALETTES = [
-  { name:'Violet', color:'#7c3aed' },
-  { name:'Smoke',  color:'#3f3f46' },
-  { name:'Bronze', color:'#a16207' },
-  { name:'Rose',   color:'#ec4899' },
-  { name:'Forest', color:'#166534' },
-  { name:'Ocean',  color:'#0891b2' },
-  { name:'Gold',   color:'#ca8a04' },
-  { name:'Plum',   color:'#7e22ce' },
-];
-
-const GLASSES_STYLES = [
-  { id:'round',  name:'Round',  draw: drawGlassesRound },
-  { id:'square', name:'Square', draw: drawGlassesSquare },
-  { id:'aviator',name:'Aviator',draw: drawGlassesAviator },
-  { id:'cateye', name:'Cat-eye',draw: drawGlassesCatEye },
-  { id:'hex',    name:'Hex',    draw: drawGlassesHex },
-  { id:'rimless',name:'Rimless',draw: drawGlassesRimless },
-];
-
-/* =====================================================================
-   BUILD FILTER UI
-   ===================================================================== */
-
-function buildHairGrid(){
-  const g = $('#hairGrid'); g.innerHTML='';
-  HAIRSTYLES.forEach(h=>{
-    const t = document.createElement('div');
-    t.className = 'style-tile' + (h.id===state.hairStyle?' active':'');
-    t.dataset.id = h.id;
-    t.innerHTML = `<div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(180deg,rgba(139,92,246,0.15),rgba(0,0,0,0.4))"><div class="text-2xl">💇</div></div><div class="tile-label">${h.name}</div>`;
-    t.onclick = ()=>{ state.hairStyle = h.id; $$('#hairGrid .style-tile').forEach(x=>x.classList.remove('active')); t.classList.add('active'); };
-    g.appendChild(t);
-  });
-}
-function buildBeardGrid(){
-  const g = $('#beardGrid'); g.innerHTML='';
-  BEARDS.forEach(b=>{
-    const t = document.createElement('div');
-    t.className = 'style-tile' + (b.id===state.beardStyle?' active':'');
-    t.innerHTML = `<div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(180deg,rgba(251,191,36,0.15),rgba(0,0,0,0.4))"><div class="text-2xl">🧔</div></div><div class="tile-label">${b.name}</div>`;
-    t.onclick = ()=>{ state.beardStyle = b.id; $$('#beardGrid .style-tile').forEach(x=>x.classList.remove('active')); t.classList.add('active'); };
-    g.appendChild(t);
-  });
-}
-function buildLipGrid(){
-  const g = $('#lipGrid'); g.innerHTML='';
-  LIPSTICK_SHADES.forEach(c=>{
-    const t = document.createElement('button');
-    t.className = 'style-tile' + (c===state.lipShade?' active':'');
-    t.innerHTML = `<div class="w-full h-full" style="background:${c}"></div>`;
-    t.onclick = ()=>{ state.lipShade = c; $$('#lipGrid .style-tile').forEach(x=>x.classList.remove('active')); t.classList.add('active'); };
-    g.appendChild(t);
-  });
-}
-function buildEyeGrid(){
-  const g = $('#eyeGrid'); g.innerHTML='';
-  EYE_PALETTES.forEach(p=>{
-    const t = document.createElement('button');
-    t.className = 'style-tile' + (p.color===state.eyeColor?' active':'');
-    t.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center" style="background:linear-gradient(180deg,${p.color}55,rgba(0,0,0,0.4))"><div class="w-7 h-7 rounded-full" style="background:${p.color};box-shadow:inset 0 0 0 2px rgba(255,255,255,0.4)"></div></div><div class="tile-label">${p.name}</div>`;
-    t.onclick = ()=>{ state.eyeColor = p.color; $$('#eyeGrid .style-tile').forEach(x=>x.classList.remove('active')); t.classList.add('active'); };
-    g.appendChild(t);
-  });
-}
-function buildGlassesGrid(){
-  const g = $('#glassesGrid'); g.innerHTML='';
-  GLASSES_STYLES.forEach(s=>{
-    const t = document.createElement('div');
-    t.className = 'style-tile' + (s.id===state.glassesStyle?' active':'');
-    t.innerHTML = `<div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(180deg,rgba(167,139,250,0.15),rgba(0,0,0,0.4))"><div class="text-2xl">👓</div></div><div class="tile-label">${s.name}</div>`;
-    t.onclick = ()=>{ state.glassesStyle = s.id; $$('#glassesGrid .style-tile').forEach(x=>x.classList.remove('active')); t.classList.add('active'); };
-    g.appendChild(t);
-  });
-}
-
-buildHairGrid(); buildBeardGrid(); buildLipGrid(); buildEyeGrid(); buildGlassesGrid();
-
-/* ---------- Module switching ---------- */
-$$('#moduleTabs button').forEach(b=>{
-  b.onclick = ()=>{
-    state.module = b.dataset.mod;
-    $$('#moduleTabs button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    ['Hair','Beard','Lipstick','Eyeshadow','Glasses','Skin'].forEach(m=>{
-      $('#panel'+m).classList.toggle('hidden', m.toLowerCase() !== state.module);
-    });
-    if (state.module === 'skin' && state.latestLandmarks) {
-      // auto-run once when entering skin module
+async function startCam(){
+  if(!navigator.mediaDevices?.getUserMedia){toast('Camera not supported in this browser');return;}
+  if(!window.isSecureContext){toast('Camera needs https or localhost. Open the deployed link or in a new tab.');}
+  loader.classList.add('show');loaderText.textContent='Loading AI face model…';
+  try{
+    if(!faceLandmarker){
+      const vision=await FilesetResolver.forVisionTasks(MP);
+      faceLandmarker=await FaceLandmarker.createFromOptions(vision,{
+        baseOptions:{modelAssetPath:FACE_MODEL,delegate:'GPU'},
+        runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:false
+      });
     }
+  }catch(err){console.log('[v0] face model error',err);toast('Could not load AI model. Check connection.');loader.classList.remove('show');return;}
+  await openStream();
+  loader.classList.remove('show');
+}
+async function openStream(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+  }catch(err){
+    console.log('[v0] getUserMedia error',err);
+    loader.classList.remove('show');
+    toast(err.name==='NotAllowedError'?'Camera permission denied. Enable it in your browser settings.':'Could not open camera.');
+    return;
+  }
+  video.srcObject=stream;
+  await video.play().catch(()=>{});
+  stageHint.style.display='none';dock.style.display='block';
+  fpsEl.classList.add('show');
+  document.getElementById('holdHint').style.display='block';
+  running=true;lastVideoTime=-1;loop();
+}
+function stopStream(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} }
+function stopCam(){ stopStream();running=false;if(rafId)cancelAnimationFrame(rafId);if(recording){try{recorder.stop();}catch(e){}} }
+
+/* ---------- segmenter (lazy) ---------- */
+let segLoading=false;
+async function ensureSegmenter(){
+  if(segmenter||segLoading)return;segLoading=true;
+  loader.classList.add('show');loaderText.textContent='Loading hair & skin segmentation…';
+  try{
+    const vision=await FilesetResolver.forVisionTasks(MP);
+    segmenter=await ImageSegmenter.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:SEG_MODEL,delegate:'GPU'},
+      runningMode:'VIDEO',outputCategoryMask:true,outputConfidenceMasks:false
+    });
+  }catch(err){console.log('[v0] seg model error',err);toast('Could not load segmentation model.');}
+  loader.classList.remove('show');segLoading=false;
+}
+let _segTs=0;
+function nextSegTs(now){_segTs=Math.max(_segTs+1,Math.floor(now));return _segTs;}
+
+/* ---------- landmark index sets ---------- */
+const LIPS_OUTER=[61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146];
+const LIPS_INNER=[78,191,80,81,82,13,312,311,310,415,308,324,318,402,317,14,87,178,88,95];
+const L_EYE_UP=[33,246,161,160,159,158,157,173,133];
+const R_EYE_UP=[362,398,384,385,386,387,388,466,263];
+const L_BROW=[46,53,52,65,55];
+const R_BROW=[285,295,282,283,276];
+const L_BROW_FILL=[70,63,105,66,107,55,65,52,53,46];
+const R_BROW_FILL=[300,293,334,296,336,285,295,282,283,276];
+const L_IRIS=[468,[469,470,471,472]];
+const R_IRIS=[473,[474,475,476,477]];
+const BEARD_TOP=[234,227,116,205,206,203,98,97,2,326,327,423,426,425,345,447,454];
+const CHEEK_L=50, CHEEK_R=280;
+
+/* offscreen canvases */
+const mCanvas=document.createElement('canvas');const mctx=mCanvas.getContext('2d',{willReadFrequently:true});
+const pMaskCanvas=document.createElement('canvas');const pmctx=pMaskCanvas.getContext('2d',{willReadFrequently:true});
+const colorCanvas=document.createElement('canvas');const ccx=colorCanvas.getContext('2d');
+const personCanvas=document.createElement('canvas');const pcctx=personCanvas.getContext('2d');
+const smoothCanvas=document.createElement('canvas');const smctx=smoothCanvas.getContext('2d');
+
+function buildCatMask(mask,cats){
+  const mw=mask.width,mh=mask.height,data=mask.getAsUint8Array();
+  if(pMaskCanvas.width!==mw){pMaskCanvas.width=mw;pMaskCanvas.height=mh;}
+  const img=pmctx.createImageData(mw,mh);
+  for(let i=0;i<data.length;i++){const o=i*4;
+    if(cats.indexOf(data[i])>=0){img.data[o]=255;img.data[o+1]=255;img.data[o+2]=255;img.data[o+3]=255;}
+    else img.data[o+3]=0;}
+  pmctx.putImageData(img,0,0);
+}
+function maskedColor(mask,cats,color){
+  buildCatMask(mask,cats);const w=pMaskCanvas.width,h=pMaskCanvas.height;
+  if(colorCanvas.width!==w){colorCanvas.width=w;colorCanvas.height=h;}
+  ccx.clearRect(0,0,w,h);ccx.drawImage(pMaskCanvas,0,0);
+  ccx.save();ccx.globalCompositeOperation='source-in';ccx.fillStyle=color;ccx.fillRect(0,0,w,h);ccx.restore();
+  return colorCanvas;
+}
+
+/* ---------- main loop ---------- */
+let frames=0,fpsT=performance.now();
+function loop(){
+  if(!running)return;
+  rafId=requestAnimationFrame(loop);
+  if(video.readyState<2)return;
+  const vw=video.videoWidth,vh=video.videoHeight;if(!vw)return;
+  if(canvas.width!==vw){canvas.width=vw;canvas.height=vh;}
+
+  const now=performance.now();
+  let faces=null;
+  if(video.currentTime!==lastVideoTime){
+    lastVideoTime=video.currentTime;
+    try{ faces=faceLandmarker?.detectForVideo(video,now); }catch(e){}
+    window.__lastFaces=faces;
+  } else faces=window.__lastFaces;
+
+  const mirror = facing==='user';
+  ctx.save();
+  if(mirror){ctx.translate(vw,0);ctx.scale(-1,1);}
+
+  // segmentation (one call per frame, shared by all seg effects)
+  let segRes=null,segMask=null;
+  const wantSeg = !holding && !analyzing && segmenter &&
+    (looks.hair.color||looks.retouch.smooth>0||looks.retouch.foundation||looks.bg.mode!=='none');
+  if(wantSeg){try{segRes=segmenter.segmentForVideo(video,nextSegTs(now));segMask=segRes.categoryMask;}catch(e){}}
+
+  // base layer
+  if(!holding && looks.bg.mode!=='none' && segMask) drawBackground(segMask,vw,vh);
+  else ctx.drawImage(video,0,0,vw,vh);
+
+  if(!holding){
+    if(segMask){
+      if(looks.hair.color) drawHair(segMask,vw,vh);
+      if(looks.retouch.smooth>0) drawSmooth(segMask,vw,vh);
+      if(looks.retouch.foundation) drawFoundation(segMask,vw,vh);
+    }
+    if(faces?.faceLandmarks?.length){
+      const lm=faces.faceLandmarks[0];
+      if(looks.beard.color) drawBeard(lm,vw,vh);
+      if(looks.blush.color) drawBlush(lm,vw,vh);
+      if(looks.brows.color) drawBrows(lm,vw,vh);
+      if(looks.eyes.color||looks.eyes.liner) drawEyes(lm,vw,vh);
+      if(looks.contacts.color) drawContacts(lm,vw,vh);
+      if(looks.lips.color) drawLips(lm,vw,vh);
+      if(looks.retouch.glow>0) drawGlow(lm,vw,vh);
+    }
+  }
+  if(segRes&&segRes.close)segRes.close();
+  ctx.restore();
+
+  frames++;
+  if(now-fpsT>500){fpsEl.textContent=Math.round(frames*1000/(now-fpsT))+' fps';frames=0;fpsT=now;}
+}
+
+/* ---------- drawing helpers ---------- */
+function poly(lm,idx,vw,vh){ctx.beginPath();idx.forEach((i,k)=>{const p=lm[i];const x=p.x*vw,y=p.y*vh;k?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();}
+function faceScale(lm,vw){return Math.hypot((lm[234].x-lm[454].x)*vw,(lm[234].y-lm[454].y)*vw);}
+
+function drawLips(lm,vw,vh){
+  ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=looks.lips.intensity;ctx.fillStyle=looks.lips.color;
+  poly(lm,LIPS_OUTER,vw,vh);
+  ctx.moveTo(lm[LIPS_INNER[0]].x*vw,lm[LIPS_INNER[0]].y*vh);
+  for(let k=LIPS_INNER.length-1;k>=0;k--){const p=lm[LIPS_INNER[k]];ctx.lineTo(p.x*vw,p.y*vh);}
+  ctx.fill('evenodd');ctx.restore();
+  // teeth whitening (inner mouth)
+  if(looks.lips.teeth){
+    ctx.save();ctx.beginPath();
+    LIPS_INNER.forEach((i,k)=>{const p=lm[i];k?ctx.lineTo(p.x*vw,p.y*vh):ctx.moveTo(p.x*vw,p.y*vh);});
+    ctx.closePath();ctx.clip();
+    ctx.globalCompositeOperation='soft-light';ctx.globalAlpha=.6;ctx.fillStyle='#ffffff';
+    const b=faceScale(lm,vw);ctx.fillRect(lm[13].x*vw-b,lm[13].y*vh-b,b*2,b*2);ctx.restore();
+  }
+  // finish
+  if(looks.lips.finish==='gloss'||looks.lips.finish==='metallic'){
+    ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=(looks.lips.finish==='metallic'?.5:.35)*looks.lips.intensity;
+    const p=lm[0], q=lm[17];const cx=(p.x+q.x)/2*vw, cy=(p.y*1.5+q.y*.5)/2*vh;const r=faceScale(lm,vw)*.12;
+    const g=ctx.createRadialGradient(cx,cy,1,cx,cy,r);g.addColorStop(0,'#ffffff');g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fill();ctx.restore();
+    if(looks.lips.finish==='metallic'){
+      ctx.save();ctx.globalCompositeOperation='overlay';ctx.globalAlpha=.4*looks.lips.intensity;ctx.fillStyle=looks.lips.color;
+      poly(lm,LIPS_OUTER,vw,vh);
+      ctx.moveTo(lm[LIPS_INNER[0]].x*vw,lm[LIPS_INNER[0]].y*vh);
+      for(let k=LIPS_INNER.length-1;k>=0;k--){const p2=lm[LIPS_INNER[k]];ctx.lineTo(p2.x*vw,p2.y*vh);}
+      ctx.fill('evenodd');ctx.restore();
+    }
+  }
+}
+function drawBlush(lm,vw,vh){
+  const r=faceScale(lm,vw)*.14;
+  [CHEEK_L,CHEEK_R].forEach(i=>{
+    const p=lm[i];const cx=p.x*vw,cy=p.y*vh;
+    ctx.save();ctx.globalCompositeOperation='soft-light';ctx.globalAlpha=looks.blush.intensity;
+    const g=ctx.createRadialGradient(cx,cy,1,cx,cy,r);g.addColorStop(0,looks.blush.color);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fill();ctx.restore();
+  });
+}
+function drawBrows(lm,vw,vh){
+  [L_BROW_FILL,R_BROW_FILL].forEach(set=>{
+    ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=looks.brows.intensity;ctx.filter='blur(2px)';ctx.fillStyle=looks.brows.color;
+    ctx.beginPath();set.forEach((i,k)=>{const p=lm[i];k?ctx.lineTo(p.x*vw,p.y*vh):ctx.moveTo(p.x*vw,p.y*vh);});ctx.closePath();ctx.fill();ctx.restore();
+  });
+}
+function drawEyes(lm,vw,vh){
+  const up=[[L_EYE_UP,L_BROW],[R_EYE_UP,R_BROW]];
+  up.forEach(([eye,brow])=>{
+    if(looks.eyes.color){
+      ctx.save();ctx.globalCompositeOperation='multiply';ctx.globalAlpha=looks.eyes.intensity;
+      ctx.filter='blur(3px)';ctx.fillStyle=looks.eyes.color;
+      ctx.beginPath();
+      eye.forEach((i,k)=>{const p=lm[i];k?ctx.lineTo(p.x*vw,p.y*vh):ctx.moveTo(p.x*vw,p.y*vh);});
+      for(let k=eye.length-1;k>=0;k--){const e=lm[eye[k]];const b=lm[brow[Math.min(k,brow.length-1)]];const x=e.x*vw,y=e.y*vh;const by=b.y*vh;ctx.lineTo(x,y+(by-y)*.55);}
+      ctx.closePath();ctx.fill();ctx.restore();
+    }
+    if(looks.eyes.liner){
+      ctx.save();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=.85;
+      ctx.strokeStyle='#141014';ctx.lineWidth=Math.max(1.5,faceScale(lm,vw)*.012);ctx.lineJoin='round';ctx.lineCap='round';
+      ctx.beginPath();eye.forEach((i,k)=>{const p=lm[i];k?ctx.lineTo(p.x*vw,p.y*vh):ctx.moveTo(p.x*vw,p.y*vh);});ctx.stroke();ctx.restore();
+    }
+  });
+}
+function drawContacts(lm,vw,vh){
+  const color=looks.contacts.color,a=looks.contacts.intensity;
+  [L_IRIS,R_IRIS].forEach(([c,ring])=>{
+    const p=lm[c];if(!p)return;const cx=p.x*vw,cy=p.y*vh;
+    let r=0;ring.forEach(i=>{const q=lm[i];if(q)r+=Math.hypot((q.x-p.x)*vw,(q.y-p.y)*vh);});r/=ring.length;
+    if(!r||!isFinite(r))return;
+    ctx.save();ctx.beginPath();ctx.arc(cx,cy,r*1.05,0,7);ctx.clip();
+    ctx.globalCompositeOperation='multiply';ctx.globalAlpha=a;
+    const g=ctx.createRadialGradient(cx,cy,r*.15,cx,cy,r*1.05);
+    g.addColorStop(0,color);g.addColorStop(.75,color);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.fillRect(cx-r*1.3,cy-r*1.3,r*2.6,r*2.6);
+    // keep pupil natural-dark
+    ctx.globalCompositeOperation='source-over';ctx.globalAlpha=a*.55;ctx.fillStyle='#150f14';
+    ctx.beginPath();ctx.arc(cx,cy,r*.38,0,7);ctx.fill();
+    ctx.restore();
+  });
+}
+function drawBeard(lm,vw,vh){
+  const jaw=[454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234];
+  const paint=(alpha,blur)=>{
+    ctx.save();ctx.globalAlpha=alpha;ctx.filter=`blur(${blur}px)`;ctx.fillStyle=looks.beard.color;
+    ctx.beginPath();BEARD_TOP.forEach((i,k)=>{const p=lm[i];k?ctx.lineTo(p.x*vw,p.y*vh):ctx.moveTo(p.x*vw,p.y*vh);});
+    jaw.forEach(i=>{const p=lm[i];ctx.lineTo(p.x*vw,p.y*vh);});ctx.closePath();
+    ctx.moveTo(lm[LIPS_OUTER[0]].x*vw,lm[LIPS_OUTER[0]].y*vh);
+    for(let k=LIPS_OUTER.length-1;k>=0;k--){const p=lm[LIPS_OUTER[k]];ctx.lineTo(p.x*vw,p.y*vh);}
+    ctx.fill('evenodd');ctx.restore();
   };
-});
-
-/* ---------- Control bindings ---------- */
-$('#hairColor').oninput = e => state.hairColor = e.target.value;
-$('#beardColor').oninput = e => state.beardColor = e.target.value;
-$('#beardDensity').oninput = e => { state.beardDensity = e.target.value/100; $('#beardDensityVal').textContent = e.target.value+'%'; };
-$('#lipOpacity').oninput = e => { state.lipOpacity = e.target.value/100; $('#lipOpacityVal').textContent = e.target.value+'%'; };
-$('#lipGloss').oninput = e => { state.lipGloss = e.target.value/100; $('#lipGlossVal').textContent = e.target.value+'%'; };
-$('#lipCustom').oninput = e => { state.lipShade = e.target.value; $$('#lipGrid .style-tile').forEach(x=>x.classList.remove('active')); };
-$('#eyeIntensity').oninput = e => { state.eyeIntensity = e.target.value/100; $('#eyeIntensityVal').textContent = e.target.value+'%'; };
-$('#linerToggle').onclick = e => { state.eyeliner = !state.eyeliner; e.currentTarget.classList.toggle('on', state.eyeliner); };
-$('#glassesColor').oninput = e => state.glassesColor = e.target.value;
-$('#glassesTint').oninput = e => { state.glassesTint = e.target.value/100; $('#glassesTintVal').textContent = e.target.value+'%'; };
-$('#toggleMeshBtn').onclick = ()=>{ state.showMesh = !state.showMesh; $('#meshBtnLabel').textContent = state.showMesh ? 'Hide' : 'Mesh'; };
-
-/* =====================================================================
-   CAMERA + MEDIAPIPE INIT
-   ===================================================================== */
-
-async function startStudio(){
-  const errEl = $('#permissionError');
-  errEl.classList.add('hidden');
-  try {
-    $('#permissionGate').classList.add('hidden');
-    $('#studioUI').classList.remove('hidden');
-    $('#loadingOverlay').classList.remove('hidden');
-    $('#loadStatus').textContent = 'requesting camera';
-
-    state.video = $('#cameraVideo');
-    state.canvas = $('#overlayCanvas');
-    state.ctx = state.canvas.getContext('2d');
-
-    // Try HD first, fall back to VGA
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
-        audio: false
-      });
-    } catch(e2){
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio: false });
-    }
-    state.video.srcObject = stream;
-    await new Promise(r => state.video.onloadedmetadata = r);
-    await state.video.play();
-
-    // size canvas to video
-    const w = state.video.videoWidth, h = state.video.videoHeight;
-    state.canvas.width = w; state.canvas.height = h;
-
-    $('#loadStatus').textContent = 'loading face mesh';
-    if (!state.faceMesh){
-      state.faceMesh = new FaceMesh({
-        locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
-      });
-      state.faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-      state.faceMesh.onResults(onMeshResults);
-    }
-
-    $('#loadStatus').textContent = 'starting camera loop';
-    state.camera = new Camera(state.video, {
-      onFrame: async () => {
-        if (state.running && state.video.readyState >= 2){
-          await state.faceMesh.send({ image: state.video });
-        }
-      },
-      width: w, height: h
-    });
-    state.running = true;
-    await state.camera.start();
-
-    // hide loader after first results
-    setTimeout(()=>{ $('#loadingOverlay').classList.add('hidden'); }, 600);
-    toast('Camera ready · face mesh online');
-
-  } catch(err){
-    console.error(err);
-    $('#permissionGate').classList.remove('hidden');
-    $('#studioUI').classList.add('hidden');
-    errEl.classList.remove('hidden');
-    errEl.textContent = '⚠ ' + (err.message || 'Camera permission denied. Please allow camera access and try again.');
-  }
+  ctx.globalCompositeOperation='source-over';paint(looks.beard.intensity,2);
+  ctx.globalCompositeOperation='multiply';paint(looks.beard.intensity*.5,1);
+  ctx.globalCompositeOperation='source-over';
+}
+function drawHair(mask,vw,vh){
+  const cc=maskedColor(mask,[1],looks.hair.color);
+  ctx.save();ctx.globalCompositeOperation='color';ctx.globalAlpha=looks.hair.intensity;ctx.imageSmoothingEnabled=true;ctx.drawImage(cc,0,0,vw,vh);ctx.restore();
+  ctx.save();ctx.globalCompositeOperation='overlay';ctx.globalAlpha=.22*looks.hair.intensity;ctx.drawImage(cc,0,0,vw,vh);ctx.restore();
+}
+function drawFoundation(mask,vw,vh){
+  const cc=maskedColor(mask,[3],looks.retouch.foundation);
+  ctx.save();ctx.globalCompositeOperation='soft-light';ctx.globalAlpha=looks.retouch.foundationAmt;ctx.imageSmoothingEnabled=true;ctx.drawImage(cc,0,0,vw,vh);ctx.restore();
+}
+function drawSmooth(mask,vw,vh){
+  const amt=looks.retouch.smooth;if(amt<=0)return;
+  if(smoothCanvas.width!==vw){smoothCanvas.width=vw;smoothCanvas.height=vh;}
+  smctx.clearRect(0,0,vw,vh);
+  smctx.filter=`blur(${Math.max(3,vw*0.007)}px)`;smctx.drawImage(video,0,0,vw,vh);smctx.filter='none';
+  buildCatMask(mask,[3,2]);
+  smctx.save();smctx.globalCompositeOperation='destination-in';smctx.imageSmoothingEnabled=true;smctx.drawImage(pMaskCanvas,0,0,vw,vh);smctx.restore();
+  ctx.save();ctx.globalAlpha=amt;ctx.imageSmoothingEnabled=true;ctx.drawImage(smoothCanvas,0,0,vw,vh);ctx.restore();
+}
+function drawBackground(mask,vw,vh){
+  buildCatMask(mask,[1,2,3,4,5]);
+  if(personCanvas.width!==vw){personCanvas.width=vw;personCanvas.height=vh;}
+  pcctx.clearRect(0,0,vw,vh);pcctx.drawImage(video,0,0,vw,vh);
+  pcctx.save();pcctx.globalCompositeOperation='destination-in';pcctx.imageSmoothingEnabled=true;pcctx.drawImage(pMaskCanvas,0,0,vw,vh);pcctx.restore();
+  if(looks.bg.mode==='blur'){ctx.save();ctx.filter=`blur(${looks.bg.blur}px)`;ctx.drawImage(video,0,0,vw,vh);ctx.restore();}
+  else{ctx.save();ctx.fillStyle=looks.bg.color;ctx.fillRect(0,0,vw,vh);ctx.restore();}
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(personCanvas,0,0,vw,vh);
+}
+function drawGlow(lm,vw,vh){
+  const amt=looks.retouch.glow;if(amt<=0)return;
+  const r=faceScale(lm,vw)*.09;const pts=[6,197,195,10,50,280,152];
+  ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=amt*.55;
+  pts.forEach(i=>{const p=lm[i];if(!p)return;const cx=p.x*vw,cy=p.y*vh;
+    const g=ctx.createRadialGradient(cx,cy,1,cx,cy,r);g.addColorStop(0,'rgba(255,248,232,1)');g.addColorStop(1,'rgba(255,248,232,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fill();});
+  ctx.restore();
 }
 
-$('#startCameraBtn').onclick = startStudio;
-$('#stopBtn').onclick = ()=>{
-  state.running = false;
-  if (state.camera) state.camera.stop();
-  if (state.video && state.video.srcObject){
-    state.video.srcObject.getTracks().forEach(t=>t.stop());
-    state.video.srcObject = null;
+/* ---------- skin analysis ---------- */
+document.getElementById('analyzeBtn').onclick=analyzeSkin;
+async function analyzeSkin(){
+  if(!running){toast('Start the camera first');return;}
+  analyzing=true;
+  await ensureSegmenter();
+  if(!segmenter){analyzing=false;return;}
+  const btn=document.getElementById('analyzeBtn');btn.textContent='Scanning…';btn.disabled=true;
+  const vw=video.videoWidth,vh=video.videoHeight;
+  mCanvas.width=vw>640?640:vw; const s=mCanvas.width/vw; mCanvas.height=Math.round(vh*s);
+  mctx.drawImage(video,0,0,mCanvas.width,mCanvas.height);
+  const frame=mctx.getImageData(0,0,mCanvas.width,mCanvas.height);
+  let res;try{res=segmenter.segmentForVideo(video,nextSegTs(performance.now()));}catch(e){}
+  const mask=res?.categoryMask; const md=mask?mask.getAsUint8Array():null; const mw=mask?mask.width:0,mh=mask?mask.height:0;
+  let n=0,sumR=0,sumG=0,sumB=0,lums=[],reds=[];
+  for(let y=0;y<mCanvas.height;y+=2){
+    for(let x=0;x<mCanvas.width;x+=2){
+      let isSkin=true;
+      if(md){const mx=Math.floor(x/mCanvas.width*mw),my=Math.floor(y/mCanvas.height*mh);isSkin=md[my*mw+mx]===3;}
+      if(!isSkin)continue;
+      const o=(y*mCanvas.width+x)*4;const R=frame.data[o],G=frame.data[o+1],B=frame.data[o+2];
+      sumR+=R;sumG+=G;sumB+=B;n++;
+      lums.push(.299*R+.587*G+.114*B);
+      reds.push(R-(G+B)/2);
+    }
   }
-  $('#studioUI').classList.add('hidden');
-  $('#permissionGate').classList.remove('hidden');
-  $('#loadingOverlay').classList.add('hidden');
-  toast('Camera stopped');
+  res?.close&&res.close();
+  analyzing=false;
+  if(n<50){toast('Move closer / face the camera');btn.textContent='Analyze';btn.disabled=false;return;}
+  const mean=a=>a.reduce((p,c)=>p+c,0)/a.length;
+  const avgL=mean(lums), avgRed=mean(reds);
+  const variance=mean(lums.map(l=>(l-avgL)**2));
+  const std=Math.sqrt(variance);
+  const radiance=clamp(mapR(avgL,60,190,30,98));
+  const evenness=clamp(100-mapR(std,6,42,0,90));
+  const redness=clamp(mapR(avgRed,-4,40,4,95));
+  const smoothness=clamp(100-mapR(std,8,46,5,92));
+  const hydration=clamp((radiance*.5+smoothness*.5));
+  const oiliness=clamp(mapR(avgL,120,210,20,90)*.7+ (100-evenness)*.3);
+  const overall=Math.round((radiance+evenness+smoothness+(100-redness)+hydration)/5);
+  renderSkin({Radiance:radiance,Evenness:evenness,Smoothness:smoothness,Redness:redness,Hydration:hydration,Oiliness:oiliness},overall);
+  btn.textContent='Re-scan';btn.disabled=false;
+}
+function clamp(v){return Math.max(2,Math.min(99,Math.round(v)));}
+function mapR(v,a,b,o1,o2){return o1+(v-a)/(b-a)*(o2-o1);}
+function renderSkin(m,overall){
+  const ring=document.getElementById('skinRing');ring.style.setProperty('--v',overall);
+  document.getElementById('skinScoreVal').textContent=overall;
+  const v=overall>80?'Glowing & healthy':overall>65?'Looking great':overall>50?'Good, room to improve':'Needs some care';
+  document.getElementById('skinVerdict').textContent=v;
+  document.getElementById('skinSub').textContent='Overall skin score (on-device estimate)';
+  const wrap=document.getElementById('skinMetrics');wrap.innerHTML='';
+  const notes={Redness:'lower is calmer',Oiliness:'lower is drier'};
+  for(const [k,val] of Object.entries(m)){
+    wrap.insertAdjacentHTML('beforeend',
+      `<div class="metric"><div class="top"><span>${k}${notes[k]?` <span style="color:var(--muted)">· ${notes[k]}</span>`:''}</span><span>${val}</span></div><div class="bar"><i></i></div></div>`);
+  }
+  requestAnimationFrame(()=>wrap.querySelectorAll('.metric').forEach((el,i)=>{el.querySelector('i').style.width=Object.values(m)[i]+'%';}));
+}
+
+/* ---------- press & hold to compare ---------- */
+const stage=document.getElementById('stage');
+stage.addEventListener('pointerdown',ev=>{if(ev.target.closest('.stage-hint'))return;holding=true;});
+['pointerup','pointerleave','pointercancel'].forEach(e=>stage.addEventListener(e,()=>holding=false));
+
+/* ---------- capture / download / share / record ---------- */
+document.getElementById('shutter').onclick=()=>{flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');window.__cap=canvas.toDataURL('image/png');toast('Captured! Download or share it.');};
+document.getElementById('dlBtn').onclick=()=>{
+  const data=window.__cap||canvas.toDataURL('image/png');
+  const a=document.createElement('a');a.href=data;a.download=(document.getElementById('brandName').textContent||'tryon')+'-look.png';a.click();
+};
+document.getElementById('shareBtn').onclick=async()=>{
+  const data=window.__cap||canvas.toDataURL('image/png');
+  try{
+    const blob=await (await fetch(data)).blob();
+    const file=new File([blob],'tryon-look.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'My try-on look'});return;}
+  }catch(e){console.log('[v0] share error',e);}
+  const a=document.createElement('a');a.href=data;a.download='tryon-look.png';a.click();
+  toast('Sharing not supported here — downloaded instead');
 };
 
-/* =====================================================================
-   MESH RESULTS HANDLER (render loop)
-   ===================================================================== */
-function onMeshResults(results){
-  const ctx = state.ctx;
-  const W = state.canvas.width, H = state.canvas.height;
-  ctx.clearRect(0,0,W,H);
-
-  // FPS
-  const now = performance.now();
-  const dt = now - state.lastFrame; state.lastFrame = now;
-  const inst = 1000/Math.max(1,dt);
-  state.fpsEMA = state.fpsEMA ? state.fpsEMA*0.9 + inst*0.1 : inst;
-  $('#fpsLabel').textContent = Math.round(state.fpsEMA) + ' fps';
-
-  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length===0){
-    state.latestLandmarks = null;
-    $('#faceStatusDot').style.background = '#f59e0b';
-    $('#faceStatusText').textContent = 'SEARCHING';
-    return;
-  }
-  const lms = results.multiFaceLandmarks[0];
-  // convert normalized {x,y,z} to canvas pixels
-  const px = lms.map(p => ({ x: p.x * W, y: p.y * H, z: p.z }));
-  state.latestLandmarks = px;
-
-  $('#faceStatusDot').style.background = '#34d399';
-  $('#faceStatusText').textContent = 'LOCKED';
-
-  // Draw active module
-  ctx.save();
-  switch(state.module){
-    case 'hair':      drawHair(ctx, px); break;
-    case 'beard':     drawBeard(ctx, px); break;
-    case 'lipstick':  drawLipstick(ctx, px); break;
-    case 'eyeshadow': drawEyeMakeup(ctx, px); break;
-    case 'glasses':   drawGlasses(ctx, px); break;
-    case 'skin':      drawSkinOverlay(ctx, px); break;
-  }
-  ctx.restore();
-
-  if (state.showMesh) drawMeshDebug(ctx, px);
-}
-
-/* =====================================================================
-   HAIR RENDERERS
-   All hair shapes are anchored on the face oval top + hairline points.
-   ===================================================================== */
-function getHairAnchors(lms){
-  // forehead top, left temple, right temple, crown back
-  const top = lms[10];
-  const leftTemple = lms[127];
-  const rightTemple = lms[356];
-  const chin = lms[152];
-  const nose = lms[1];
-  const faceW = dist(leftTemple, rightTemple);
-  const faceH = dist(top, chin);
-  return { top, leftTemple, rightTemple, chin, nose, faceW, faceH };
-}
-
-function drawHair(ctx, lms){
-  const h = HAIRSTYLES.find(x=>x.id===state.hairStyle) || HAIRSTYLES[0];
-  h.draw(ctx, lms);
-}
-
-function drawHairClassic(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.15;
-  const w = a.faceW * 1.18;
-  const h = a.faceH * 0.55;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  ctx.beginPath();
-  ctx.moveTo(a.leftTemple.x - a.faceW*0.05, a.leftTemple.y + a.faceH*0.05);
-  ctx.bezierCurveTo(
-    cx - w*0.5, cy - h*0.3,
-    cx - w*0.2, cy - h*0.95,
-    cx, cy - h*0.95
-  );
-  ctx.bezierCurveTo(
-    cx + w*0.2, cy - h*0.95,
-    cx + w*0.5, cy - h*0.3,
-    a.rightTemple.x + a.faceW*0.05, a.rightTemple.y + a.faceH*0.05
-  );
-  // sweep across forehead
-  ctx.bezierCurveTo(
-    a.rightTemple.x, a.top.y + a.faceH*0.05,
-    cx + a.faceW*0.15, a.top.y + a.faceH*0.08,
-    cx, a.top.y + a.faceH*0.04
-  );
-  ctx.bezierCurveTo(
-    cx - a.faceW*0.15, a.top.y + a.faceH*0.08,
-    a.leftTemple.x, a.top.y + a.faceH*0.05,
-    a.leftTemple.x - a.faceW*0.05, a.leftTemple.y + a.faceH*0.05
-  );
-  ctx.closePath();
-  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
-  ctx.fill();
-  // highlight strand
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cx - w*0.15, cy - h*0.7);
-  ctx.bezierCurveTo(cx, cy - h*0.95, cx + w*0.15, cy - h*0.8, cx + w*0.25, cy - h*0.4);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawHairFade(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.1;
-  const w = a.faceW * 1.15;
-  const h = a.faceH * 0.4;
-  ctx.save();
-  // gradient for fade effect
-  const grad = ctx.createLinearGradient(0, cy-h, 0, cy+h*0.5);
-  grad.addColorStop(0, state.hairColor);
-  grad.addColorStop(0.7, state.hairColor);
-  grad.addColorStop(1, 'rgba(0,0,0,0.0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, w*0.5, h, 0, Math.PI, 0);
-  ctx.bezierCurveTo(cx + w*0.5, cy + h*0.3, a.rightTemple.x, a.top.y + a.faceH*0.1, cx, a.top.y + a.faceH*0.05);
-  ctx.bezierCurveTo(a.leftTemple.x, a.top.y + a.faceH*0.1, cx - w*0.5, cy + h*0.3, cx - w*0.5, cy);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairSlick(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.18;
-  const w = a.faceW * 1.2;
-  const h = a.faceH * 0.4;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  ctx.beginPath();
-  ctx.moveTo(a.leftTemple.x - a.faceW*0.05, a.leftTemple.y);
-  ctx.bezierCurveTo(cx - w*0.5, cy - h*0.2, cx - w*0.15, cy - h*0.95, cx + w*0.1, cy - h*0.85);
-  ctx.bezierCurveTo(cx + w*0.4, cy - h*0.7, cx + w*0.5, cy - h*0.2, a.rightTemple.x + a.faceW*0.05, a.rightTemple.y);
-  ctx.bezierCurveTo(a.rightTemple.x, a.top.y + a.faceH*0.06, cx + a.faceW*0.1, a.top.y + a.faceH*0.05, cx, a.top.y + a.faceH*0.05);
-  ctx.bezierCurveTo(cx - a.faceW*0.1, a.top.y + a.faceH*0.06, a.leftTemple.x, a.top.y + a.faceH*0.05, a.leftTemple.x - a.faceW*0.05, a.leftTemple.y);
-  ctx.closePath();
-  ctx.fill();
-  // shine
-  const sg = ctx.createLinearGradient(cx-w*0.3, cy-h*0.8, cx+w*0.3, cy);
-  sg.addColorStop(0,'rgba(255,255,255,0)'); sg.addColorStop(0.5,'rgba(255,255,255,0.2)'); sg.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle = sg;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairCurls(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.2;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  // cluster of circles
-  const r = a.faceW * 0.13;
-  const positions = [];
-  for (let i=-3;i<=3;i++){
-    for (let j=0;j<3;j++){
-      positions.push({ x: cx + i*r*0.85 + (j%2?r*0.4:0), y: cy - j*r*0.7 + Math.abs(i)*r*0.15 });
-    }
-  }
-  positions.forEach(p=>{
-    ctx.beginPath(); ctx.arc(p.x, p.y, r*0.9, 0, Math.PI*2); ctx.fill();
-  });
-  // sides
-  ctx.beginPath();
-  ctx.ellipse(a.leftTemple.x - a.faceW*0.05, a.leftTemple.y + a.faceH*0.1, a.faceW*0.12, a.faceH*0.18, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(a.rightTemple.x + a.faceW*0.05, a.rightTemple.y + a.faceH*0.1, a.faceW*0.12, a.faceH*0.18, 0, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairBob(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.15;
-  const w = a.faceW * 1.3;
-  const h = a.faceH * 0.5;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  ctx.beginPath();
-  ctx.moveTo(a.leftTemple.x - a.faceW*0.15, a.leftTemple.y + a.faceH*0.45);
-  ctx.bezierCurveTo(a.leftTemple.x - a.faceW*0.2, cy, cx - w*0.4, cy - h*0.9, cx, cy - h*0.9);
-  ctx.bezierCurveTo(cx + w*0.4, cy - h*0.9, a.rightTemple.x + a.faceW*0.2, cy, a.rightTemple.x + a.faceW*0.15, a.rightTemple.y + a.faceH*0.45);
-  ctx.lineTo(a.rightTemple.x + a.faceW*0.05, a.rightTemple.y + a.faceH*0.05);
-  ctx.bezierCurveTo(cx + a.faceW*0.1, a.top.y + a.faceH*0.05, cx - a.faceW*0.1, a.top.y + a.faceH*0.05, a.leftTemple.x - a.faceW*0.05, a.leftTemple.y + a.faceH*0.05);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairTop(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.1;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  // shaved sides, top bun
-  ctx.beginPath();
-  ctx.ellipse(cx, cy - a.faceH*0.1, a.faceW*0.18, a.faceH*0.15, 0, 0, Math.PI*2);
-  ctx.fill();
-  // bun
-  ctx.beginPath();
-  ctx.arc(cx, cy - a.faceH*0.25, a.faceW*0.13, 0, Math.PI*2);
-  ctx.fill();
-  // short top fade
-  ctx.globalAlpha = 0.7;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, a.faceW*0.25, a.faceH*0.06, 0, Math.PI, 0);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairWave(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.18;
-  const w = a.faceW * 1.2;
-  const h = a.faceH * 0.45;
-  ctx.save();
-  ctx.fillStyle = state.hairColor;
-  ctx.beginPath();
-  ctx.moveTo(a.leftTemple.x - a.faceW*0.05, a.leftTemple.y);
-  // wavy top
-  for (let i=0;i<=5;i++){
-    const t = i/5;
-    const x = a.leftTemple.x + (a.rightTemple.x - a.leftTemple.x)*t;
-    const y = cy - h*0.9 + Math.sin(t*Math.PI*2)*h*0.12;
-    ctx.lineTo(x, y);
-  }
-  ctx.bezierCurveTo(a.rightTemple.x + a.faceW*0.05, a.rightTemple.y - a.faceH*0.05, a.rightTemple.x + a.faceW*0.05, a.rightTemple.y + a.faceH*0.05, a.rightTemple.x, a.top.y + a.faceH*0.05);
-  ctx.bezierCurveTo(cx + a.faceW*0.1, a.top.y + a.faceH*0.06, cx - a.faceW*0.1, a.top.y + a.faceH*0.06, a.leftTemple.x, a.top.y + a.faceH*0.05);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawHairBuzz(ctx, lms){
-  const a = getHairAnchors(lms);
-  const cx = a.top.x;
-  const cy = a.top.y - a.faceH*0.05;
-  ctx.save();
-  // very short, gradient fade
-  const grad = ctx.createLinearGradient(0, cy - a.faceH*0.2, 0, cy + a.faceH*0.1);
-  grad.addColorStop(0, state.hairColor);
-  grad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = grad;
-  ctx.globalAlpha = 0.85;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, a.faceW*0.55, a.faceH*0.2, 0, Math.PI, 0);
-  ctx.fill();
-  ctx.restore();
-}
-
-/* =====================================================================
-   BEARD RENDERERS
-   ===================================================================== */
-function drawBeard(ctx, lms){
-  const b = BEARDS.find(x=>x.id===state.beardStyle) || BEARDS[0];
-  ctx.save();
-  ctx.globalAlpha = state.beardDensity;
-  b.draw(ctx, lms);
-  ctx.restore();
-}
-
-function drawBeardFull(ctx, lms){
-  const chin = lms[152];
-  const left = lms[172];
-  const right = lms[397];
-  const lipBot = lms[17];
-  const earL = lms[234];
-  const earR = lms[454];
-  const cx = (left.x + right.x)/2;
-  const w = dist(earL, earR) * 0.95;
-  const h = dist(lipBot, chin) * 1.8;
-  ctx.fillStyle = state.beardColor;
-  ctx.beginPath();
-  ctx.moveTo(earL.x, earL.y + h*0.15);
-  ctx.bezierCurveTo(left.x - w*0.1, lipBot.y, left.x - w*0.05, chin.y + h*0.2, cx - w*0.15, chin.y + h*0.4);
-  ctx.bezierCurveTo(cx - w*0.05, chin.y + h*0.5, cx + w*0.05, chin.y + h*0.5, cx + w*0.15, chin.y + h*0.4);
-  ctx.bezierCurveTo(right.x + w*0.05, chin.y + h*0.2, right.x + w*0.1, lipBot.y, earR.x, earR.y + h*0.15);
-  ctx.bezierCurveTo(right.x, lipBot.y - h*0.1, cx + w*0.1, lipBot.y - h*0.15, cx, lipBot.y - h*0.05);
-  ctx.bezierCurveTo(cx - w*0.1, lipBot.y - h*0.15, left.x, lipBot.y - h*0.1, earL.x, earL.y + h*0.15);
-  ctx.closePath();
-  ctx.fill();
-  // texture
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  for (let i=0;i<60;i++){
-    const t = Math.random();
-    const x = earL.x + (earR.x - earL.x)*t;
-    const y = lipBot.y + (chin.y - lipBot.y)*Math.random()*1.5;
-    ctx.fillRect(x, y, 1.5, 1.5);
-  }
-}
-
-function drawBeardGoatee(ctx, lms){
-  const chin = lms[152];
-  const lipBot = lms[17];
-  const lipLeft = lms[61];
-  const lipRight = lms[291];
-  const w = dist(lipLeft, lipRight);
-  ctx.fillStyle = state.beardColor;
-  ctx.beginPath();
-  ctx.moveTo(lipLeft.x + w*0.1, lipBot.y);
-  ctx.bezierCurveTo(lipLeft.x + w*0.15, chin.y - w*0.1, chin.x - w*0.18, chin.y, chin.x, chin.y + w*0.4);
-  ctx.bezierCurveTo(chin.x + w*0.18, chin.y, lipRight.x - w*0.15, chin.y - w*0.1, lipRight.x - w*0.1, lipBot.y);
-  ctx.closePath();
-  ctx.fill();
-  // moustache
-  ctx.beginPath();
-  ctx.moveTo(lipLeft.x, lipBot.y - w*0.15);
-  ctx.bezierCurveTo(lipLeft.x + w*0.2, lipBot.y - w*0.3, lipRight.x - w*0.2, lipBot.y - w*0.3, lipRight.x, lipBot.y - w*0.15);
-  ctx.bezierCurveTo(lipRight.x - w*0.1, lipBot.y - w*0.05, lipLeft.x + w*0.1, lipBot.y - w*0.05, lipLeft.x, lipBot.y - w*0.15);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function drawBeardStubble(ctx, lms){
-  const chin = lms[152];
-  const left = lms[172];
-  const right = lms[397];
-  const lipBot = lms[17];
-  const earL = lms[234];
-  const earR = lms[454];
-  ctx.fillStyle = state.beardColor;
-  ctx.globalAlpha = state.beardDensity * 0.5;
-  // sample many small dots
-  for (let i=0;i<400;i++){
-    const t = Math.random();
-    const x = earL.x + (earR.x - earL.x)*t;
-    const yRange = (chin.y - lipBot.y)*1.5;
-    const y = lipBot.y + Math.random()*yRange;
-    // ellipse mask
-    const cx = (earL.x+earR.x)/2;
-    const dx = (x-cx)/(dist(earL,earR)*0.5);
-    const dy = (y-lipBot.y)/yRange;
-    if (dx*dx + dy*dy < 1){
-      ctx.beginPath(); ctx.arc(x, y, 0.8, 0, Math.PI*2); ctx.fill();
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawBeardVan(ctx, lms){
-  // moustache + chin tuft
-  drawBeardGoatee(ctx, lms);
-}
-
-function drawBeardMutton(ctx, lms){
-  drawBeardFull(ctx, lms);
-  // extend sideburns
-  const earL = lms[234];
-  const earR = lms[454];
-  const cheekL = lms[50];
-  const cheekR = lms[280];
-  ctx.fillStyle = state.beardColor;
-  ctx.beginPath();
-  ctx.moveTo(earL.x, earL.y);
-  ctx.bezierCurveTo(earL.x - 20, cheekL.y, earL.x - 30, cheekL.y + 60, earL.x - 10, cheekL.y + 100);
-  ctx.bezierCurveTo(cheekL.x - 10, cheekL.y + 80, cheekL.x, cheekL.y + 40, earL.x, earL.y);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(earR.x, earR.y);
-  ctx.bezierCurveTo(earR.x + 20, cheekR.y, earR.x + 30, cheekR.y + 60, earR.x + 10, cheekR.y + 100);
-  ctx.bezierCurveTo(cheekR.x + 10, cheekR.y + 80, cheekR.x, cheekR.y + 40, earR.x, earR.y);
-  ctx.fill();
-}
-
-function drawBeardHorseshoe(ctx, lms){
-  const lipBot = lms[17];
-  const lipLeft = lms[61];
-  const lipRight = lms[291];
-  const chin = lms[152];
-  const w = dist(lipLeft, lipRight);
-  ctx.fillStyle = state.beardColor;
-  ctx.beginPath();
-  ctx.moveTo(lipLeft.x, lipBot.y);
-  ctx.bezierCurveTo(lipLeft.x - w*0.1, lipBot.y + w*0.4, lipLeft.x + w*0.05, chin.y - w*0.2, lipLeft.x + w*0.15, chin.y);
-  ctx.lineTo(lipRight.x - w*0.15, chin.y);
-  ctx.bezierCurveTo(lipRight.x - w*0.05, chin.y - w*0.2, lipRight.x + w*0.1, lipBot.y + w*0.4, lipRight.x, lipBot.y);
-  ctx.closePath();
-  ctx.fill();
-}
-
-/* =====================================================================
-   LIPSTICK
-   ===================================================================== */
-function drawLipstick(ctx, lms){
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = state.lipOpacity;
-  ctx.fillStyle = state.lipShade;
-  // outer lips
-  landmarksToPath(ctx, lms, LIP_OUTER, true);
-  ctx.fill();
-  // inner lips (to define lip line)
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.globalAlpha = 0.6;
-  landmarksToPath(ctx, lms, LIP_INNER, true);
-  ctx.fill();
-  // re-apply with reduced opacity inside
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = state.lipOpacity * 0.5;
-  landmarksToPath(ctx, lms, LIP_INNER, true);
-  ctx.fill();
-  // gloss highlight
-  if (state.lipGloss > 0){
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.globalAlpha = state.lipGloss;
-    const lipC = centroid(lms, LIP_OUTER);
-    const lipL = lms[61], lipR = lms[291];
-    const w = dist(lipL, lipR);
-    const grad = ctx.createRadialGradient(lipC.x, lipC.y, 0, lipC.x, lipC.y, w*0.6);
-    grad.addColorStop(0, 'rgba(255,255,255,0.5)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.1)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grad;
-    landmarksToPath(ctx, lms, LIP_OUTER, true);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-/* =====================================================================
-   EYE MAKEUP
-   ===================================================================== */
-function drawEyeMakeup(ctx, lms){
-  ctx.save();
-  ctx.globalAlpha = state.eyeIntensity;
-  ctx.globalCompositeOperation = 'multiply';
-  // shadow above each eye
-  [LEFT_EYE, RIGHT_EYE].forEach(eyeIdx=>{
-    const c = centroid(lms, eyeIdx);
-    const l = lms[eyeIdx[0]], r = lms[eyeIdx[8]];
-    const w = dist(l, r);
-    const grad = ctx.createRadialGradient(c.x, c.y - w*0.2, 0, c.x, c.y - w*0.2, w*0.7);
-    grad.addColorStop(0, state.eyeColor);
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    // upper lid region
-    eyeIdx.forEach((idx,i)=>{ const p = lms[idx]; if (i<=8) { i===0 ? ctx.moveTo(p.x, p.y - w*0.1) : ctx.lineTo(p.x, p.y - w*0.1); } });
-    eyeIdx.slice(0,9).reverse().forEach(idx=>{ const p = lms[idx]; ctx.lineTo(p.x, p.y); });
-    ctx.closePath();
-    ctx.fill();
-  });
-  ctx.restore();
-
-  if (state.eyeliner){
-    ctx.save();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = Math.max(1.5, dist(lms[33], lms[133]) * 0.04);
-    ctx.lineCap = 'round';
-    [LEFT_EYE, RIGHT_EYE].forEach(eyeIdx=>{
-      ctx.beginPath();
-      eyeIdx.slice(0,9).forEach((idx,i)=>{ const p = lms[idx]; i===0?ctx.moveTo(p.x, p.y):ctx.lineTo(p.x, p.y); });
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
-
-  // iris recolor (if iris landmarks available)
-  if (lms[468] && lms[473]){
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-atop';
-    [LEFT_EYE_IRIS, RIGHT_EYE_IRIS].forEach(irisIdx=>{
-      const c = centroid(lms, irisIdx);
-      const r = dist(lms[irisIdx[0]], lms[irisIdx[2]])/2;
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, r, 0, Math.PI*2);
-      ctx.fillStyle = state.eyeColor;
-      ctx.globalAlpha = state.eyeIntensity * 0.7;
-      ctx.fill();
-    });
-    ctx.restore();
-  }
-}
-
-/* =====================================================================
-   GLASSES
-   ===================================================================== */
-function drawGlasses(ctx, lms){
-  const s = GLASSES_STYLES.find(x=>x.id===state.glassesStyle) || GLASSES_STYLES[0];
-  s.draw(ctx, lms);
-}
-
-function drawGlassesRound(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.6;
-  ctx.save();
-  // lens tint
-  if (state.glassesTint > 0){
-    ctx.fillStyle = state.glassesColor;
-    ctx.globalAlpha = state.glassesTint;
-    ctx.beginPath(); ctx.arc(leftC.x, leftC.y, r, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(rightC.x, rightC.y, r, 0, Math.PI*2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(2, r*0.1);
-  ctx.beginPath(); ctx.arc(leftC.x, leftC.y, r, 0, Math.PI*2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(rightC.x, rightC.y, r, 0, Math.PI*2); ctx.stroke();
-  // bridge
-  ctx.beginPath();
-  ctx.moveTo(leftC.x + r, leftC.y);
-  ctx.lineTo(rightC.x - r, rightC.y);
-  ctx.stroke();
-  // temples
-  ctx.beginPath();
-  ctx.moveTo(leftC.x - r, leftC.y);
-  ctx.lineTo(leftC.x - r*1.8, leftC.y - r*0.2);
-  ctx.moveTo(rightC.x + r, rightC.y);
-  ctx.lineTo(rightC.x + r*1.8, rightC.y - r*0.2);
-  ctx.stroke();
-  ctx.restore();
-}
-function drawGlassesSquare(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.55;
-  const half = r * 0.9;
-  ctx.save();
-  if (state.glassesTint > 0){
-    ctx.fillStyle = state.glassesColor; ctx.globalAlpha = state.glassesTint;
-    ctx.fillRect(leftC.x-half, leftC.y-half*0.75, half*2, half*1.5);
-    ctx.fillRect(rightC.x-half, rightC.y-half*0.75, half*2, half*1.5);
-    ctx.globalAlpha = 1;
-  }
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(2, r*0.1);
-  ctx.strokeRect(leftC.x-half, leftC.y-half*0.75, half*2, half*1.5);
-  ctx.strokeRect(rightC.x-half, rightC.y-half*0.75, half*2, half*1.5);
-  ctx.beginPath(); ctx.moveTo(leftC.x+half, leftC.y); ctx.lineTo(rightC.x-half, rightC.y); ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(leftC.x-half, leftC.y); ctx.lineTo(leftC.x-half*1.8, leftC.y-half*0.2);
-  ctx.moveTo(rightC.x+half, rightC.y); ctx.lineTo(rightC.x+half*1.8, rightC.y-half*0.2);
-  ctx.stroke();
-  ctx.restore();
-}
-function drawGlassesAviator(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.62;
-  ctx.save();
-  if (state.glassesTint > 0){
-    const g = ctx.createLinearGradient(0, leftC.y-r, 0, leftC.y+r);
-    g.addColorStop(0, state.glassesColor); g.addColorStop(1, 'rgba(0,0,0,0.6)');
-    ctx.fillStyle = g; ctx.globalAlpha = state.glassesTint;
-    ctx.beginPath();
-    ctx.moveTo(leftC.x - r*0.8, leftC.y - r*0.6);
-    ctx.bezierCurveTo(leftC.x - r, leftC.y, leftC.x - r*0.6, leftC.y + r, leftC.x, leftC.y + r);
-    ctx.bezierCurveTo(leftC.x + r*0.6, leftC.y + r, leftC.x + r, leftC.y, leftC.x + r*0.8, leftC.y - r*0.6);
-    ctx.bezierCurveTo(leftC.x + r*0.4, leftC.y - r*0.8, leftC.x - r*0.4, leftC.y - r*0.8, leftC.x - r*0.8, leftC.y - r*0.6);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(rightC.x - r*0.8, rightC.y - r*0.6);
-    ctx.bezierCurveTo(rightC.x - r, rightC.y, rightC.x - r*0.6, rightC.y + r, rightC.x, rightC.y + r);
-    ctx.bezierCurveTo(rightC.x + r*0.6, rightC.y + r, rightC.x + r, rightC.y, rightC.x + r*0.8, rightC.y - r*0.6);
-    ctx.bezierCurveTo(rightC.x + r*0.4, rightC.y - r*0.8, rightC.x - r*0.4, rightC.y - r*0.8, rightC.x - r*0.8, rightC.y - r*0.6);
-    ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(2, r*0.08);
-  ctx.beginPath();
-  ctx.moveTo(leftC.x - r*0.8, leftC.y - r*0.6);
-  ctx.bezierCurveTo(leftC.x - r, leftC.y, leftC.x - r*0.6, leftC.y + r, leftC.x, leftC.y + r);
-  ctx.bezierCurveTo(leftC.x + r*0.6, leftC.y + r, leftC.x + r, leftC.y, leftC.x + r*0.8, leftC.y - r*0.6);
-  ctx.bezierCurveTo(leftC.x + r*0.4, leftC.y - r*0.8, leftC.x - r*0.4, leftC.y - r*0.8, leftC.x - r*0.8, leftC.y - r*0.6);
-  ctx.closePath(); ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rightC.x - r*0.8, rightC.y - r*0.6);
-  ctx.bezierCurveTo(rightC.x - r, rightC.y, rightC.x - r*0.6, rightC.y + r, rightC.x, rightC.y + r);
-  ctx.bezierCurveTo(rightC.x + r*0.6, rightC.y + r, rightC.x + r, rightC.y, rightC.x + r*0.8, rightC.y - r*0.6);
-  ctx.bezierCurveTo(rightC.x + r*0.4, rightC.y - r*0.8, rightC.x - r*0.4, rightC.y - r*0.8, rightC.x - r*0.8, rightC.y - r*0.6);
-  ctx.closePath(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(leftC.x + r*0.8, leftC.y - r*0.6); ctx.lineTo(rightC.x - r*0.8, rightC.y - r*0.6); ctx.stroke();
-  ctx.restore();
-}
-function drawGlassesCatEye(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.6;
-  ctx.save();
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(2.5, r*0.12);
-  ctx.lineCap = 'round';
-  [leftC, rightC].forEach(c=>{
-    ctx.beginPath();
-    ctx.moveTo(c.x - r, c.y + r*0.4);
-    ctx.bezierCurveTo(c.x - r*0.9, c.y - r*0.7, c.x + r*0.5, c.y - r*0.9, c.x + r*1.2, c.y - r*0.5);
-    ctx.bezierCurveTo(c.x + r, c.y + r*0.3, c.x - r*0.8, c.y + r*0.5, c.x - r, c.y + r*0.4);
-    ctx.closePath();
-    if (state.glassesTint > 0){ ctx.save(); ctx.fillStyle = state.glassesColor; ctx.globalAlpha = state.glassesTint; ctx.fill(); ctx.restore(); }
-    ctx.stroke();
-  });
-  ctx.beginPath(); ctx.moveTo(leftC.x + r*0.8, leftC.y - r*0.2); ctx.lineTo(rightC.x - r*0.8, rightC.y - r*0.2); ctx.stroke();
-  ctx.restore();
-}
-function drawGlassesHex(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.6;
-  ctx.save();
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(2, r*0.1);
-  [leftC, rightC].forEach(c=>{
-    ctx.beginPath();
-    for (let i=0;i<6;i++){
-      const a = Math.PI/3 * i + Math.PI/6;
-      const x = c.x + Math.cos(a)*r, y = c.y + Math.sin(a)*r*0.85;
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    }
-    ctx.closePath();
-    if (state.glassesTint > 0){ ctx.save(); ctx.fillStyle = state.glassesColor; ctx.globalAlpha = state.glassesTint; ctx.fill(); ctx.restore(); }
-    ctx.stroke();
-  });
-  ctx.beginPath(); ctx.moveTo(leftC.x + r, leftC.y); ctx.lineTo(rightC.x - r, rightC.y); ctx.stroke();
-  ctx.restore();
-}
-function drawGlassesRimless(ctx, lms){
-  const leftC = centroid(lms, LEFT_EYE);
-  const rightC = centroid(lms, RIGHT_EYE);
-  const r = dist(lms[33], lms[133]) * 0.55;
-  ctx.save();
-  if (state.glassesTint > 0){
-    ctx.fillStyle = state.glassesColor; ctx.globalAlpha = state.glassesTint;
-    ctx.beginPath(); ctx.arc(leftC.x, leftC.y, r, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(rightC.x, rightC.y, r, 0, Math.PI*2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  // only bridge + temples
-  ctx.strokeStyle = state.glassesColor;
-  ctx.lineWidth = Math.max(1.5, r*0.06);
-  ctx.beginPath(); ctx.moveTo(leftC.x + r*0.9, leftC.y); ctx.lineTo(rightC.x - r*0.9, rightC.y); ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(leftC.x - r, leftC.y); ctx.lineTo(leftC.x - r*1.6, leftC.y - r*0.2);
-  ctx.moveTo(rightC.x + r, rightC.y); ctx.lineTo(rightC.x + r*1.6, rightC.y - r*0.2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/* =====================================================================
-   SKIN ANALYSIS
-   ===================================================================== */
-function drawSkinOverlay(ctx, lms){
-  // visualize sample regions
-  const regions = [
-    { idx: LEFT_CHEEK, label: 'L cheek', color: 'rgba(34,211,238,0.8)' },
-    { idx: RIGHT_CHEEK, label: 'R cheek', color: 'rgba(34,211,238,0.8)' },
-    { idx: FOREHEAD, label: 'forehead', color: 'rgba(167,139,250,0.8)' },
-    { idx: UNDER_EYE_L, label: 'L eye', color: 'rgba(236,72,153,0.8)' },
-    { idx: UNDER_EYE_R, label: 'R eye', color: 'rgba(236,72,153,0.8)' },
-  ];
-  ctx.save();
-  regions.forEach(r=>{
-    const p = lms[r.idx]; if (!p) return;
-    const radius = Math.max(8, dist(lms[33], lms[133]) * 0.18);
-    ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
-    ctx.strokeStyle = r.color; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = r.color;
-    ctx.font = '11px JetBrains Mono';
-    ctx.fillText(r.label, p.x + radius + 4, p.y - radius);
-  });
-  ctx.restore();
-}
-
-$('#runSkinBtn').onclick = ()=>{
-  if (!state.latestLandmarks){ toast('No face detected'); return; }
-  runSkinAnalysis();
+let recorder=null,chunks=[],recording=false;
+const recBtn=document.getElementById('recBtn');
+recBtn.onclick=()=>{
+  if(!running){toast('Start the camera first');return;}
+  if(recording){try{recorder.stop();}catch(e){}return;}
+  if(typeof MediaRecorder==='undefined'||!canvas.captureStream){toast('Recording not supported in this browser');return;}
+  const cs=canvas.captureStream(30);chunks=[];
+  const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':
+             MediaRecorder.isTypeSupported('video/webm;codecs=vp8')?'video/webm;codecs=vp8':'video/webm';
+  try{recorder=new MediaRecorder(cs,{mimeType:mime});}catch(e){toast('Recording not supported');return;}
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  recorder.onstop=()=>{
+    const blob=new Blob(chunks,{type:'video/webm'});const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=(document.getElementById('brandName').textContent||'tryon')+'-video.webm';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    recording=false;recBtn.classList.remove('rec');toast('Video saved');
+  };
+  recorder.start();recording=true;recBtn.classList.add('rec');toast('Recording… tap again to stop');
 };
 
-function runSkinAnalysis(){
-  const lms = state.latestLandmarks;
-  const video = state.video;
-  if (!video || video.readyState < 2) { toast('Video not ready'); return; }
-
-  // draw current video frame to an offscreen canvas to sample pixels
-  const off = document.createElement('canvas');
-  off.width = video.videoWidth; off.height = video.videoHeight;
-  const octx = off.getContext('2d');
-  // un-mirror: video element has CSS mirror, but pixel sampling uses raw video
-  octx.drawImage(video, 0, 0);
-  // landmarks are in canvas (mirrored) coordinates; canvas is same size as video
-  // but our overlay canvas is also drawn mirrored via CSS; landmark x is already in video-pixel space
-  // (MediaPipe sends normalized coords we multiplied by W=videoWidth). So sample at lms[i].x directly.
-
-  function sampleIndices(indices, radius){
-    const c = centroid(lms, indices);
-    const r = Math.max(6, dist(lms[33], lms[133]) * 0.15);
-    let R=0,G=0,B=0,n=0;
-    const samples = [];
-    for (let dy=-r; dy<=r; dy+=2){
-      for (let dx=-r; dx<=r; dx+=2){
-        if (dx*dx + dy*dy > r*r) continue;
-        const x = Math.round(c.x + dx), y = Math.round(c.y + dy);
-        if (x<0||y<0||x>=off.width||y>=off.height) continue;
-        const d = octx.getImageData(x, y, 1, 1).data;
-        R += d[0]; G += d[1]; B += d[2]; n++;
-        samples.push({ r: d[0], g: d[1], b: d[2] });
-      }
-    }
-    R/=n; G/=n; B/=n;
-    // variance for evenness
-    let vR=0; samples.forEach(s=>{ vR += Math.abs(s.r - R); });
-    vR /= samples.length;
-    return { R, G, B, n, variance: vR, samples };
-  }
-
-  const cheek = sampleIndices([LEFT_CHEEK, RIGHT_CHEEK], 0);
-  const forehead = sampleIndices([FOREHEAD], 0);
-  const underEye = sampleIndices([UNDER_EYE_L, UNDER_EYE_R], 0);
-
-  // ITA angle (typo angle): ITA = atan((L - b) / L) * 180 / PI
-  // Convert RGB -> LAB approx
-  function rgb2lab(r,g,b){
-    r/=255; g/=255; b/=255;
-    r = r>0.04045 ? Math.pow((r+0.055)/1.055, 2.4) : r/12.92;
-    g = g>0.04045 ? Math.pow((g+0.055)/1.055, 2.4) : g/12.92;
-    b = b>0.04045 ? Math.pow((b+0.055)/1.055, 2.4) : b/12.92;
-    const X = (r*0.4124 + g*0.3576 + b*0.1805) * 100;
-    const Y = (r*0.2126 + g*0.7152 + b*0.0722) * 100;
-    const Z = (r*0.0193 + g*0.1192 + b*0.9505) * 100;
-    const Xn=95.047, Yn=100, Zn=108.883;
-    const f = (t)=> t>0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
-    const fx = f(X/Xn), fy = f(Y/Yn), fz = f(Z/Zn);
-    return { L: 116*fy - 16, a: 500*(fx-fy), b: 200*(fy-fz) };
-  }
-
-  const lab = rgb2lab(cheek.R, cheek.G, cheek.B);
-  const ITA = Math.atan2(lab.L - lab.b, lab.L) * 180 / Math.PI;
-
-  let tone = 'Light';
-  if (ITA > 55) tone = 'Very Light';
-  else if (ITA > 41) tone = 'Light';
-  else if (ITA > 28) tone = 'Intermediate';
-  else if (ITA > 10) tone = 'Tan';
-  else if (ITA > -30) tone = 'Brown';
-  else tone = 'Dark';
-
-  const brightness = Math.round((0.299*cheek.R + 0.587*cheek.G + 0.114*cheek.B) / 255 * 100);
-  const evenness = Math.round(Math.max(0, Math.min(100, 100 - cheek.variance * 1.2)));
-  const redness = Math.round(Math.max(0, Math.min(100, (lab.a / 30) * 100)));
-  // under-eye darkness: lower luminance vs cheek
-  const eyeLab = rgb2lab(underEye.R, underEye.G, underEye.B);
-  const darkIndex = Math.round(Math.max(0, Math.min(100, (lab.L - eyeLab.L) * 3)));
-  // hydration proxy: brightness × evenness with mild noise
-  const hydra = Math.round(Math.max(0, Math.min(100, (brightness*0.5 + evenness*0.5) - 8)));
-  const overall = Math.round((hydra*0.3 + evenness*0.3 + brightness*0.2 + (100-redness)*0.1 + (100-darkIndex)*0.1));
-
-  let rec = 'Hydrating serum';
-  if (redness > 50) rec = 'Soothing gel (aloe/centella)';
-  else if (darkIndex > 50) rec = 'Caffeine eye cream';
-  else if (evenness < 50) rec = 'Gentle exfoliant (AHA)';
-  else if (brightness < 50) rec = 'Vitamin C brightener';
-  else if (hydra < 50) rec = 'Rich moisturiser';
-
-  // render results
-  const html = `
-    <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.2)">
-      <div>
-        <div class="text-xs text-white/50">Overall score</div>
-        <div class="font-display font-700 text-2xl grad-text-2">${overall}<span class="text-sm text-white/40">/100</span></div>
-      </div>
-      <div class="text-right">
-        <div class="text-xs text-white/50">Skin tone (ITA°)</div>
-        <div class="font-semibold text-sm">${ITA.toFixed(1)}° · ${tone}</div>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-2">
-      ${metric('Hydration', hydra, 'var(--grad-2)')}
-      ${metric('Evenness', evenness, 'var(--grad-3)')}
-      ${metric('Brightness', brightness, 'linear-gradient(90deg,#22d3ee,#fbbf24)')}
-      ${metric('Redness', redness, '#ef4444', true)}
-      ${metric('Dark circles', darkIndex, '#6366f1', true)}
-      ${metric('Texture', Math.round(100 - cheek.variance), 'var(--grad-1)')}
-    </div>
-    <div class="p-3 rounded-xl" style="background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.2)">
-      <div class="text-xs text-white/50 mb-0.5">Recommendation</div>
-      <div class="font-semibold text-sm text-pink-300">${rec}</div>
-    </div>
-    <div class="text-[10px] text-white/30 font-mono">Sampled ${cheek.n*2 + forehead.n + underEye.n*2} px · L=${lab.L.toFixed(1)} a=${lab.a.toFixed(1)} b=${lab.b.toFixed(1)}</div>
-  `;
-  $('#skinResults').innerHTML = html;
-
-  // Also update the sample report in the analysis section
-  $('#rptOverall').textContent = overall;
-  $('#rptHydra').textContent = hydra;
-  $('#rptEven').textContent = evenness;
-  $('#rptBright').textContent = brightness;
-  $('#rptRed').textContent = redness;
-  $('#rptDark').textContent = darkIndex;
-  $('#rptITA').textContent = `${ITA.toFixed(1)}° · ${tone}`;
-  $('#rptRec').textContent = rec;
-  const rptBars = $$('#analysis .skin-bar > div');
-  if (rptBars.length >= 6){
-    rptBars[0].style.width = overall+'%';
-    rptBars[1].style.width = hydra+'%';
-    rptBars[2].style.width = evenness+'%';
-    rptBars[3].style.width = brightness+'%';
-    rptBars[4].style.width = redness+'%';
-    rptBars[5].style.width = darkIndex+'%';
-  }
-  toast('Skin analysis complete');
-}
-
-function metric(label, val, grad, invert=false){
-  const v = Math.max(0, Math.min(100, val));
-  return `
-    <div class="p-2.5 rounded-lg" style="background:rgba(255,255,255,0.03);border:1px solid var(--border)">
-      <div class="flex items-center justify-between text-[11px] mb-1">
-        <span class="text-white/60">${label}</span>
-        <span class="font-mono ${invert && v>50 ? 'text-pink-300' : ''}">${v}</span>
-      </div>
-      <div class="skin-bar"><div style="width:${v}%;background:${grad}"></div></div>
-    </div>
-  `;
-}
-
-/* =====================================================================
-   SNAPSHOT CAPTURE
-   ===================================================================== */
-$('#captureBtn').onclick = ()=>{
-  if (!state.latestLandmarks){ toast('No face detected'); return; }
-  captureSnapshot();
-};
-
-function captureSnapshot(){
-  const video = state.video;
-  const W = video.videoWidth, H = video.videoHeight;
-  // composite: video (mirrored) + overlay (mirrored)
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const cx = c.getContext('2d');
-  // mirror to match what the user sees on screen
-  cx.translate(W, 0); cx.scale(-1, 1);
-  cx.drawImage(video, 0, 0, W, H);
-  // overlay canvas content
-  cx.drawImage(state.canvas, 0, 0, W, H);
-
-  const dataUrl = c.toDataURL('image/jpeg', 0.92);
-  state.snapshots.unshift({ dataUrl, ts: Date.now() });
-  if (state.snapshots.length > 10) state.snapshots.pop();
-  renderSnaps();
-  toast('Captured');
-
-  // store "before" snapshot on first capture
-  if (!state.beforeSnap){ state.beforeSnap = dataUrl; }
-};
-
-function renderSnaps(){
-  const list = $('#snapList');
-  if (state.snapshots.length === 0){
-    list.innerHTML = '<div class="text-xs text-white/30 col-span-5 py-4 text-center">Your captures will appear here. Tap to compare before/after.</div>';
-    return;
-  }
-  list.innerHTML = '';
-  state.snapshots.forEach((s, i)=>{
-    const t = document.createElement('div');
-    t.className = 'snap-thumb';
-    t.innerHTML = `<img src="${s.dataUrl}" alt="snap" /><div class="absolute top-1 right-1 text-[9px] font-mono bg-black/60 text-white px-1.5 py-0.5 rounded">${i===0?'NOW':('#'+(state.snapshots.length-i))}</div>`;
-    t.onclick = ()=> openCompare(s.dataUrl);
-    list.appendChild(t);
-  });
-}
-
-$('#clearSnapsBtn').onclick = ()=>{
-  state.snapshots = []; state.beforeSnap = null; renderSnaps();
-};
-
-/* ---------- Compare modal ---------- */
-function openCompare(afterUrl){
-  const before = state.beforeSnap;
-  if (!before || before === afterUrl){ toast('Take at least 2 captures to compare'); return; }
-  $('#compareBefore').src = before;
-  $('#compareAfter').src = afterUrl;
-  $('#compareModal').classList.remove('hidden');
-  $('#compareModal').classList.add('flex');
-}
-$('#closeCompare').onclick = ()=>{
-  $('#compareModal').classList.add('hidden');
-  $('#compareModal').classList.remove('flex');
-};
-
-// compare drag
-(function(){
-  const wrap = $('#compareWrap');
-  const handle = $('#compareHandle');
-  const after = $('#compareAfter');
-  let dragging = false;
-  function setPct(p){
-    p = Math.max(0, Math.min(100, p));
-    handle.style.left = p + '%';
-    after.style.clipPath = `inset(0 0 0 ${p}%)`;
-  }
-  function fromEvent(e){
-    const r = wrap.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-    return (x / r.width) * 100;
-  }
-  wrap.addEventListener('mousedown', e=>{ dragging=true; setPct(fromEvent(e)); });
-  window.addEventListener('mousemove', e=>{ if(dragging) setPct(fromEvent(e)); });
-  window.addEventListener('mouseup', ()=> dragging=false);
-  wrap.addEventListener('touchstart', e=>{ dragging=true; setPct(fromEvent(e)); }, {passive:true});
-  window.addEventListener('touchmove', e=>{ if(dragging) setPct(fromEvent(e)); }, {passive:true});
-  window.addEventListener('touchend', ()=> dragging=false);
-  setPct(50);
-})();
-
-/* =====================================================================
-   DEBUG MESH
-   ===================================================================== */
-function drawMeshDebug(ctx, lms){
-  ctx.save();
-  ctx.fillStyle = 'rgba(139,92,246,0.6)';
-  lms.forEach(p=>{
-    ctx.beginPath(); ctx.arc(p.x, p.y, 0.8, 0, Math.PI*2); ctx.fill();
-  });
-  // key landmarks
-  ctx.fillStyle = 'rgba(34,211,238,0.9)';
-  [10, 152, 1, 33, 263, 61, 291, 17].forEach(i=>{
-    const p = lms[i]; if(!p) return;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
-  });
-  // lips outline
-  ctx.strokeStyle = 'rgba(236,72,153,0.7)'; ctx.lineWidth = 1;
-  landmarksToPath(ctx, lms, LIP_OUTER, true); ctx.stroke();
-  landmarksToPath(ctx, lms, LEFT_EYE, true); ctx.stroke();
-  landmarksToPath(ctx, lms, RIGHT_EYE, true); ctx.stroke();
-  landmarksToPath(ctx, lms, FACE_OVAL, true); ctx.stroke();
-  ctx.restore();
-}
-
-/* =====================================================================
-   Smooth scroll for nav
-   ===================================================================== */
-$$('a[href^="#"]').forEach(a=>{
-  a.addEventListener('click', e=>{
-    const id = a.getAttribute('href');
-    if (id.length > 1){
-      const el = document.querySelector(id);
-      if (el){ e.preventDefault(); el.scrollIntoView({ behavior:'smooth', block:'start' }); }
-    }
-  });
-});
-
-/* =====================================================================
-   Parallax on hero visual
-   ===================================================================== */
-const heroVis = $('#heroVisual');
-if (heroVis){
-  window.addEventListener('mousemove', e=>{
-    const x = (e.clientX / window.innerWidth - 0.5) * 2;
-    const y = (e.clientY / window.innerHeight - 0.5) * 2;
-    heroVis.style.transform = `perspective(1000px) rotateY(${x*4}deg) rotateX(${-y*4}deg)`;
-  });
-}
-
+/* auto-open studio if ?studio=1 */
+if(params.get('studio')==='1') openStudio();
 </script>
 </body>
 </html>
