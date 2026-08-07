@@ -1,0 +1,2642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0612" />
+<title>ANKIT — AI Beauty Try-On Studio</title>
+
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- MediaPipe Face Mesh -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    --bg-0: #07050d;
+    --bg-1: #0e0a1c;
+    --bg-2: #15102a;
+    --ink-0: #ffffff;
+    --ink-1: #d8d2e8;
+    --ink-2: #8b81a8;
+    --ink-3: #5a5274;
+    --accent: #c084fc;
+    --accent-2: #f472b6;
+    --accent-3: #22d3ee;
+    --accent-4: #fbbf24;
+    --glass: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.08);
+  }
+
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { overscroll-behavior: none; touch-action: manipulation; }
+
+  body {
+    margin: 0;
+    background: var(--bg-0);
+    color: var(--ink-0);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .font-display { font-family: 'Playfair Display', serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* === Animated gradient background === */
+  .aurora-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-bg::before, .aurora-bg::after {
+    content: '';
+    position: absolute;
+    width: 80vmax;
+    height: 80vmax;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.45;
+    will-change: transform;
+  }
+  .aurora-bg::before {
+    background: radial-gradient(circle at center, #c084fc 0%, transparent 60%);
+    top: -30%;
+    left: -20%;
+    animation: drift1 22s ease-in-out infinite;
+  }
+  .aurora-bg::after {
+    background: radial-gradient(circle at center, #f472b6 0%, transparent 60%);
+    bottom: -30%;
+    right: -20%;
+    animation: drift2 26s ease-in-out infinite;
+  }
+  .aurora-bg .blob-3 {
+    position: absolute;
+    width: 50vmax;
+    height: 50vmax;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, #22d3ee 0%, transparent 60%);
+    filter: blur(80px);
+    opacity: 0.25;
+    top: 30%;
+    left: 40%;
+    animation: drift3 30s ease-in-out infinite;
+  }
+  @keyframes drift1 {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(20vw,15vh) scale(1.2); }
+  }
+  @keyframes drift2 {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-15vw,-10vh) scale(1.15); }
+  }
+  @keyframes drift3 {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-25vw,20vh) scale(0.9); }
+  }
+
+  .noise-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* === Glass panels === */
+  .glass {
+    background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-strong {
+    background: linear-gradient(135deg, rgba(20,15,35,0.85), rgba(10,8,20,0.92));
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* === Buttons === */
+  .btn-primary {
+    background: linear-gradient(135deg, #c084fc 0%, #f472b6 50%, #fb923c 100%);
+    background-size: 200% 200%;
+    color: #0a0612;
+    font-weight: 700;
+    border-radius: 999px;
+    transition: transform 0.2s ease, box-shadow 0.3s ease, background-position 0.6s ease;
+    box-shadow: 0 8px 32px rgba(192,132,252,0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .btn-primary:hover { transform: translateY(-2px); background-position: 100% 50%; box-shadow: 0 12px 40px rgba(244,114,182,0.5); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--ink-0);
+    border-radius: 999px;
+    transition: all 0.2s ease;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+
+  /* === Hero animations === */
+  .hero-title {
+    background: linear-gradient(120deg, #fff 0%, #c084fc 30%, #f472b6 60%, #22d3ee 90%, #fff 100%);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 8s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 0% 0; }
+    100% { background-position: 300% 0; }
+  }
+
+  .floating-card {
+    animation: float 6s ease-in-out infinite;
+  }
+  .floating-card.delay-1 { animation-delay: -2s; }
+  .floating-card.delay-2 { animation-delay: -4s; }
+  @keyframes float {
+    0%,100% { transform: translateY(0) rotate(-1deg); }
+    50% { transform: translateY(-12px) rotate(1deg); }
+  }
+
+  /* === 3D tilt cards === */
+  .tilt-card {
+    transform-style: preserve-3d;
+    transition: transform 0.3s ease;
+    will-change: transform;
+  }
+  .tilt-card .tilt-inner { transform: translateZ(40px); }
+
+  /* === Studio (camera) view === */
+  #studioView { display: none; }
+  #studioView.active { display: flex; }
+
+  .cam-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  #videoEl, #overlayCanvas, #effectCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  #videoEl { transform: scaleX(-1); }
+  #overlayCanvas { transform: scaleX(-1); pointer-events: none; }
+  #effectCanvas { pointer-events: none; }
+
+  /* === Feature tabs === */
+  .feat-tab {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .feat-tab.active {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(192,132,252,0.25), rgba(244,114,182,0.25));
+    border-color: rgba(192,132,252,0.4);
+    box-shadow: 0 4px 16px rgba(192,132,252,0.25);
+  }
+
+  /* === Option chips === */
+  .opt-chip {
+    flex: 0 0 auto;
+    width: 72px;
+    height: 88px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    position: relative;
+  }
+  .opt-chip:active { transform: scale(0.95); }
+  .opt-chip.active {
+    border-color: var(--accent);
+    background: rgba(192,132,252,0.15);
+    box-shadow: 0 4px 16px rgba(192,132,252,0.3);
+  }
+  .opt-chip .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .opt-chip .label {
+    font-size: 10px;
+    color: var(--ink-1);
+    text-align: center;
+    line-height: 1.1;
+    font-weight: 500;
+  }
+
+  /* === Slider === */
+  input[type="range"].lux-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    border-radius: 999px;
+    outline: none;
+  }
+  input[type="range"].lux-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(192,132,252,0.6);
+    border: 3px solid #c084fc;
+  }
+  input[type="range"].lux-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid #c084fc;
+  }
+
+  /* === Toast === */
+  .toast {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: rgba(15,10,28,0.95);
+    border: 1px solid rgba(192,132,252,0.4);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* === Capture flash === */
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .flash-overlay.flash {
+    animation: flashAnim 0.4s ease-out;
+  }
+  @keyframes flashAnim {
+    0% { opacity: 0; }
+    20% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  /* === Modal === */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,3,12,0.85);
+    backdrop-filter: blur(12px);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-backdrop.active { display: flex; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+
+  .modal-sheet {
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    background: linear-gradient(180deg, #15102a 0%, #0a0612 100%);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-radius: 28px 28px 0 0;
+    padding: 20px;
+    overflow-y: auto;
+    animation: slideUp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  /* === Skin analysis bars === */
+  .meter-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+    position: relative;
+  }
+  .meter-bar .fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(0.2,0.9,0.3,1);
+  }
+
+  /* === Loading spinner === */
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(192,132,252,0.2);
+    border-top-color: #c084fc;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* === Hide scrollbars === */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* === Captures gallery thumb === */
+  .cap-thumb {
+    flex: 0 0 auto;
+    width: 96px;
+    height: 128px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+  }
+  .cap-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* === Status dot === */
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+
+  /* === Feature icon glyphs (inline SVG friendly) === */
+  .icon-svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* === Safe areas === */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* === Fade-in on load === */
+  .fade-in { animation: fadeUp 0.7s ease both; }
+  @keyframes fadeUp { from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);} }
+
+  @media (min-width: 768px) {
+    .modal-sheet { border-radius: 28px; margin: 40px; max-width: 720px; }
+    .modal-backdrop { align-items: center; padding: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="aurora-bg"><div class="blob-3"></div></div>
+<div class="noise-overlay"></div>
+
+<!-- ============================================================ -->
+<!-- ============== LANDING / MARKETING PAGE ==================== -->
+<!-- ============================================================ -->
+<main id="landingView" class="relative z-10">
+
+  <!-- Nav -->
+  <nav class="pt-safe">
+    <div class="max-w-7xl mx-auto px-5 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #c084fc, #f472b6); box-shadow: 0 4px 16px rgba(192,132,252,0.4);">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="#0a0612" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div>
+          <div class="font-display text-lg font-bold tracking-wide leading-none">ANKIT</div>
+          <div class="text-[10px] uppercase tracking-[0.2em] text-purple-300/70 mt-0.5">Beauty AI Studio</div>
+        </div>
+      </div>
+      <div class="hidden md:flex items-center gap-1 text-sm">
+        <a href="#features" class="px-3 py-2 text-gray-300 hover:text-white transition">Features</a>
+        <a href="#how" class="px-3 py-2 text-gray-300 hover:text-white transition">How it works</a>
+        <a href="#pricing" class="px-3 py-2 text-gray-300 hover:text-white transition">Pricing</a>
+      </div>
+      <button onclick="openStudio()" class="btn-primary px-5 py-2.5 text-sm">Launch Studio</button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="relative px-5 pt-10 md:pt-20 pb-16">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid md:grid-cols-2 gap-12 items-center">
+        <div class="fade-in">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass mb-6">
+            <span class="status-dot"></span>
+            <span class="text-xs text-purple-200/80 font-medium">Real-time · On-device · GDPR-ready</span>
+          </div>
+          <h1 class="font-display text-5xl md:text-7xl font-black leading-[0.95] tracking-tight">
+            <span class="hero-title">Try. Transform.</span><br/>
+            <span class="text-white">In real time.</span>
+          </h1>
+          <p class="text-gray-400 text-base md:text-lg mt-6 max-w-lg leading-relaxed">
+            A white-label AI beauty studio for salons, barbershops and cosmetic brands. Hairstyles, beards, lipstick, eye color, skin analysis — all running live in the browser, powered by 468-point face mesh tracking.
+          </p>
+          <div class="flex flex-wrap gap-3 mt-8">
+            <button onclick="openStudio()" class="btn-primary px-7 py-3.5 text-sm flex items-center gap-2">
+              <svg class="icon-svg" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              Launch Live Studio
+            </button>
+            <a href="#features" class="btn-ghost px-6 py-3.5 text-sm">Explore Features</a>
+          </div>
+          <div class="flex items-center gap-6 mt-10 pt-8 border-t border-white/5">
+            <div>
+              <div class="font-display text-3xl font-bold text-white">468</div>
+              <div class="text-xs text-gray-500 mt-1">Face landmarks</div>
+            </div>
+            <div>
+              <div class="font-display text-3xl font-bold text-white">12+</div>
+              <div class="text-xs text-gray-500 mt-1">Live filters</div>
+            </div>
+            <div>
+              <div class="font-display text-3xl font-bold text-white">~30ms</div>
+              <div class="text-xs text-gray-500 mt-1">Per frame</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero visual: floating preview cards -->
+        <div class="relative h-[480px] md:h-[560px] hidden sm:block">
+          <!-- main phone mock -->
+          <div class="floating-card absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 md:w-72 h-[440px] md:h-[500px] rounded-[40px] glass-strong p-3 shadow-2xl" style="box-shadow: 0 30px 80px rgba(192,132,252,0.25);">
+            <div class="w-full h-full rounded-[32px] overflow-hidden relative" style="background: linear-gradient(180deg, #2a1248, #0a0612);">
+              <!-- fake camera preview -->
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-40 h-40 rounded-full" style="background: radial-gradient(circle at 35% 35%, #fde68a, #d4a574 60%, #7c3aed); box-shadow: 0 0 60px rgba(192,132,252,0.5);"></div>
+              </div>
+              <!-- bottom bar -->
+              <div class="absolute bottom-3 left-3 right-3 glass-strong rounded-2xl p-3">
+                <div class="flex gap-2 overflow-hidden">
+                  <div class="w-10 h-10 rounded-full" style="background:#ef4444;"></div>
+                  <div class="w-10 h-10 rounded-full" style="background:#ec4899;"></div>
+                  <div class="w-10 h-10 rounded-full" style="background:#8b5cf6;"></div>
+                  <div class="w-10 h-10 rounded-full" style="background:#06b6d4;"></div>
+                  <div class="w-10 h-10 rounded-full" style="background:#10b981;"></div>
+                </div>
+                <div class="text-[10px] text-purple-200/70 mt-2 text-center">ANKIT · Live Try-On</div>
+              </div>
+              <!-- top dot -->
+              <div class="absolute top-3 left-3 right-3 flex justify-between items-center">
+                <div class="px-2 py-1 rounded-full bg-black/40 text-[9px] text-white flex items-center gap-1"><span class="status-dot"></span>LIVE</div>
+                <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- floating chip cards -->
+          <div class="floating-card delay-1 absolute top-6 right-4 md:right-12 glass rounded-2xl px-4 py-3 shadow-xl">
+            <div class="text-[10px] text-gray-400 uppercase tracking-wider">Skin Analysis</div>
+            <div class="font-display text-xl font-bold text-white mt-1">92<span class="text-sm text-purple-300">/100</span></div>
+            <div class="meter-bar mt-2 w-24"><div class="fill" style="width:92%; background: linear-gradient(90deg, #22d3ee, #8b5cf6);"></div></div>
+          </div>
+
+          <div class="floating-card delay-2 absolute bottom-12 left-0 md:left-8 glass rounded-2xl px-4 py-3 shadow-xl">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full" style="background: linear-gradient(135deg, #ec4899, #f43f5e);"></div>
+              <div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">Lipstick</div>
+                <div class="text-sm font-semibold text-white">Crimson Matte</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="floating-card absolute top-1/2 right-0 md:right-0 glass rounded-2xl px-3 py-2 shadow-xl">
+            <div class="text-[10px] text-gray-400">Hair Style</div>
+            <div class="text-xs font-semibold text-white">Tousled Wave</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features grid -->
+  <section id="features" class="px-5 py-20 relative">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-14">
+        <div class="text-xs uppercase tracking-[0.3em] text-purple-300/70 mb-3">Capabilities</div>
+        <h2 class="font-display text-4xl md:text-5xl font-bold text-white">Everything a salon needs.<br/>Live. In one studio.</h2>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <!-- feature cards -->
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition group">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(192,132,252,0.3), rgba(244,114,182,0.15));">
+            <svg class="icon-svg text-purple-300" viewBox="0 0 24 24"><path d="M12 2L4 7v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V7l-8-5z"/></svg>
+          </div>
+          <div class="font-semibold text-white">Hairstyle Try-On</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">8+ styles — short, long, curly, bun, buzz — positioned precisely to head geometry.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(251,191,36,0.3), rgba(244,114,182,0.15));">
+            <svg class="icon-svg text-amber-300" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          </div>
+          <div class="font-semibold text-white">Beard Studio</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">Stubble, goatee, full, mustache, van dyke — color & density adjustable.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(244,114,182,0.3), rgba(239,68,68,0.15));">
+            <svg class="icon-svg text-pink-300" viewBox="0 0 24 24"><path d="M12 2C8 8 6 11 6 14a6 6 0 0 0 12 0c0-3-2-6-6-12z"/></svg>
+          </div>
+          <div class="font-semibold text-white">Lipstick & Gloss</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">12 shades, matte/gloss finish, intensity slider. Tracks upper & lower lip separately.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(34,211,238,0.3), rgba(99,102,241,0.15));">
+            <svg class="icon-svg text-cyan-300" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div class="font-semibold text-white">Eye Color & Lens</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">8 iris colors with realistic gradient. Powered by iris refinement landmarks.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(236,72,153,0.15));">
+            <svg class="icon-svg text-fuchsia-300" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+          </div>
+          <div class="font-semibold text-white">Eyeshadow & Liner</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">Colorful eyeshadow palettes plus precision eyeliner that follows eye contour.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(251,113,133,0.3), rgba(244,114,182,0.15));">
+            <svg class="icon-svg text-rose-300" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <div class="font-semibold text-white">Blush & Contour</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">Soft blush, sculpting contour, foundation tone matching — auto skin-tone detected.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,211,238,0.15));">
+            <svg class="icon-svg text-emerald-300" viewBox="0 0 24 24"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <div class="font-semibold text-white">Skin Analysis</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">Brightness, redness, evenness, tone, age estimate, hydration proxy — live report card.</div>
+        </div>
+
+        <div class="glass rounded-2xl p-5 hover:border-purple-400/40 transition">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background: linear-gradient(135deg, rgba(251,191,36,0.3), rgba(217,119,6,0.15));">
+            <svg class="icon-svg text-yellow-300" viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg>
+          </div>
+          <div class="font-semibold text-white">Glam Filters</div>
+          <div class="text-xs text-gray-400 mt-1.5 leading-relaxed">Skin smoothing, glow, vignette, vintage — tunable intensity, applied in real time.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="px-5 py-20">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-14">
+        <div class="text-xs uppercase tracking-[0.3em] text-purple-300/70 mb-3">Workflow</div>
+        <h2 class="font-display text-4xl md:text-5xl font-bold text-white">Three steps. Zero friction.</h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-5">
+        <div class="glass rounded-3xl p-7 relative overflow-hidden">
+          <div class="absolute -top-6 -right-2 font-display text-9xl font-black text-white/[0.03]">01</div>
+          <div class="relative">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(192,132,252,0.3), rgba(244,114,182,0.15));">
+              <svg class="icon-svg text-purple-300" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            </div>
+            <div class="font-semibold text-white text-lg">Open & allow camera</div>
+            <div class="text-sm text-gray-400 mt-2 leading-relaxed">Customer taps "Launch Studio". Browser asks for camera permission. Everything runs locally on-device — no video leaves the phone.</div>
+          </div>
+        </div>
+        <div class="glass rounded-3xl p-7 relative overflow-hidden">
+          <div class="absolute -top-6 -right-2 font-display text-9xl font-black text-white/[0.03]">02</div>
+          <div class="relative">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(244,114,182,0.3), rgba(251,113,133,0.15));">
+              <svg class="icon-svg text-pink-300" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <div class="font-semibold text-white text-lg">Pick & tune filters</div>
+            <div class="text-sm text-gray-400 mt-2 leading-relaxed">Swipe through hairstyle, beard, lipstick, eye, blush, foundation, glam filters. Adjust intensity with a slider. See it live instantly.</div>
+          </div>
+        </div>
+        <div class="glass rounded-3xl p-7 relative overflow-hidden">
+          <div class="absolute -top-6 -right-2 font-display text-9xl font-black text-white/[0.03]">03</div>
+          <div class="relative">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(34,211,238,0.3), rgba(16,185,129,0.15));">
+              <svg class="icon-svg text-cyan-300" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </div>
+            <div class="font-semibold text-white text-lg">Capture & share</div>
+            <div class="text-sm text-gray-400 mt-2 leading-relaxed">Snap a photo, compare before/after, download or share with the salon. Or run a full skin analysis report.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing / Use cases -->
+  <section id="pricing" class="px-5 py-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-14">
+        <div class="text-xs uppercase tracking-[0.3em] text-purple-300/70 mb-3">Use Cases</div>
+        <h2 class="font-display text-4xl md:text-5xl font-bold text-white">Built to be sold.<br/>Built to be branded.</h2>
+        <p class="text-gray-400 mt-4 max-w-xl mx-auto">White-label Ankit for your salon chain, barbershop, or beauty e-commerce. Embed on your site or ship as a custom PWA.</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-5">
+        <div class="glass rounded-3xl p-7">
+          <div class="text-sm text-purple-300/80 uppercase tracking-wider font-semibold">Salon</div>
+          <div class="font-display text-3xl font-bold text-white mt-2">Starter</div>
+          <div class="text-sm text-gray-400 mt-1">Single location</div>
+          <ul class="mt-6 space-y-3 text-sm text-gray-300">
+            <li class="flex gap-2"><span class="text-purple-400">✓</span> Hairstyle + Beard try-on</li>
+            <li class="flex gap-2"><span class="text-purple-400">✓</span> 5 capture slots</li>
+            <li class="flex gap-2"><span class="text-purple-400">✓</span> Ankit branding</li>
+            <li class="flex gap-2"><span class="text-purple-400">✓</span> Mobile + desktop</li>
+          </ul>
+        </div>
+        <div class="glass-strong rounded-3xl p-7 relative" style="border-color: rgba(192,132,252,0.4);">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold" style="background: linear-gradient(135deg, #c084fc, #f472b6); color:#0a0612;">Most Popular</div>
+          <div class="text-sm text-pink-300/80 uppercase tracking-wider font-semibold">Brand</div>
+          <div class="font-display text-3xl font-bold text-white mt-2">Pro</div>
+          <div class="text-sm text-gray-400 mt-1">Chain / multi-location</div>
+          <ul class="mt-6 space-y-3 text-sm text-gray-300">
+            <li class="flex gap-2"><span class="text-pink-400">✓</span> Everything in Starter</li>
+            <li class="flex gap-2"><span class="text-pink-400">✓</span> Full makeup suite</li>
+            <li class="flex gap-2"><span class="text-pink-400">✓</span> Skin analysis reports</li>
+            <li class="flex gap-2"><span class="text-pink-400">✓</span> Your logo & colors</li>
+            <li class="flex gap-2"><span class="text-pink-400">✓</span> Embed on your website</li>
+          </ul>
+        </div>
+        <div class="glass rounded-3xl p-7">
+          <div class="text-sm text-cyan-300/80 uppercase tracking-wider font-semibold">Enterprise</div>
+          <div class="font-display text-3xl font-bold text-white mt-2">Custom</div>
+          <div class="text-sm text-gray-400 mt-1">Cosmetic brands & retailers</div>
+          <ul class="mt-6 space-y-3 text-sm text-gray-300">
+            <li class="flex gap-2"><span class="text-cyan-400">✓</span> Everything in Pro</li>
+            <li class="flex gap-2"><span class="text-cyan-400">✓</span> Custom AI model training</li>
+            <li class="flex gap-2"><span class="text-cyan-400">✓</span> Your product catalog</li>
+            <li class="flex gap-2"><span class="text-cyan-400">✓</span> On-prem / private cloud</li>
+            <li class="flex gap-2"><span class="text-cyan-400">✓</span> GDPR / EU data residency</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="px-5 py-12 pb-safe border-t border-white/5">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #c084fc, #f472b6);">
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="#0a0612" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>
+        </div>
+        <div class="text-sm text-gray-400">© 2026 <span class="text-white font-semibold">Ankit</span> Beauty AI Studio. All rights reserved.</div>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-gray-500">
+        <span>Powered by MediaPipe Face Mesh</span>
+        <span class="w-1 h-1 rounded-full bg-gray-600"></span>
+        <span>Runs 100% on-device</span>
+      </div>
+    </div>
+  </footer>
+</main>
+
+<!-- ============================================================ -->
+<!-- ============== STUDIO (CAMERA + FILTERS) =================== -->
+<!-- ============================================================ -->
+<main id="studioView" class="fixed inset-0 z-30 flex-col bg-black">
+
+  <!-- Top bar -->
+  <header class="pt-safe absolute top-0 left-0 right-0 z-20 px-3 py-3">
+    <div class="flex items-center justify-between gap-2">
+      <button onclick="exitStudio()" class="w-10 h-10 rounded-full glass-strong flex items-center justify-center">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div class="glass-strong rounded-full px-4 py-2 flex items-center gap-2">
+        <span id="liveDot" class="w-2 h-2 rounded-full bg-gray-500"></span>
+        <span class="text-xs font-semibold tracking-wider" id="liveLabel">STANDBY</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openGallery()" class="w-10 h-10 rounded-full glass-strong flex items-center justify-center relative">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span id="galleryBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-pink-500 text-[9px] font-bold flex items-center justify-center">0</span>
+        </button>
+        <button onclick="switchCamera()" class="w-10 h-10 rounded-full glass-strong flex items-center justify-center">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Camera stage -->
+  <div class="cam-stage flex-1">
+    <video id="videoEl" autoplay playsinline muted></video>
+    <canvas id="effectCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+    <div class="flash-overlay" id="flashOverlay"></div>
+
+    <!-- Permission overlay -->
+    <div id="permissionOverlay" class="absolute inset-0 z-30 flex items-center justify-center px-6">
+      <div class="glass-strong rounded-3xl p-8 max-w-sm text-center">
+        <div class="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5" style="background: linear-gradient(135deg, rgba(192,132,252,0.3), rgba(244,114,182,0.15));">
+          <svg class="w-8 h-8 text-purple-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <h3 class="font-display text-2xl font-bold text-white mb-2">Camera Access</h3>
+        <p class="text-sm text-gray-400 mb-6 leading-relaxed">Ankit needs your camera to apply live filters. Everything runs on your device — no video is uploaded or stored.</p>
+        <button onclick="startCamera()" class="btn-primary w-full py-3.5 text-sm">Allow Camera</button>
+        <button onclick="exitStudio()" class="btn-ghost w-full py-3 mt-2 text-sm">Not now</button>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="absolute inset-0 z-30 hidden flex items-center justify-center">
+      <div class="text-center">
+        <div class="spinner mx-auto"></div>
+        <div class="text-sm text-purple-200/80 mt-4" id="loadingLabel">Loading AI model…</div>
+      </div>
+    </div>
+
+    <!-- Analysis panel (right side, desktop) -->
+    <div id="analysisPanel" class="hidden md:block absolute top-20 right-4 z-20 w-72 glass-strong rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-xs uppercase tracking-wider text-purple-300/80 font-semibold">Live Skin Report</div>
+        <button onclick="closeAnalysisPanel()" class="text-gray-400 hover:text-white">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="analysisContent" class="space-y-3 text-sm"></div>
+    </div>
+
+    <!-- Capture button -->
+    <div class="absolute bottom-32 left-1/2 -translate-x-1/2 z-20">
+      <button onclick="capturePhoto()" class="w-18 h-18 rounded-full bg-white p-1.5 shadow-2xl active:scale-95 transition" style="width:72px; height:72px;">
+        <div class="w-full h-full rounded-full border-4 border-black/80 bg-white"></div>
+      </button>
+    </div>
+
+    <!-- Reset button -->
+    <div class="absolute bottom-32 left-6 z-20">
+      <button onclick="resetAll()" class="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-95 transition">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+    </div>
+
+    <!-- Analysis button -->
+    <div class="absolute bottom-32 right-6 z-20">
+      <button onclick="toggleAnalysis()" class="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-95 transition">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 6-6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom control bar -->
+  <footer class="relative z-20 pb-safe glass-strong" style="border-top: 1px solid rgba(255,255,255,0.08);">
+    <!-- Feature tabs -->
+    <div class="px-3 pt-3 overflow-x-auto no-scrollbar">
+      <div class="flex gap-2 pb-1" id="featureTabs">
+        <!-- populated by JS -->
+      </div>
+    </div>
+    <!-- Options carousel + slider -->
+    <div class="px-3 pb-3 pt-2">
+      <div id="optionsRow" class="flex gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+      <div id="sliderRow" class="hidden mt-3 px-1">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-gray-400" id="sliderLabel">Intensity</span>
+          <span class="text-xs text-purple-300 font-mono" id="sliderValue">50%</span>
+        </div>
+        <input type="range" class="lux-slider" id="intensitySlider" min="0" max="100" value="50" />
+      </div>
+    </div>
+  </footer>
+</main>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Capture modal -->
+<div id="captureModal" class="modal-backdrop">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display text-2xl font-bold text-white">Captured Look</h3>
+      <button onclick="closeModal('captureModal')" class="text-gray-400 hover:text-white">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="captureContent"></div>
+  </div>
+</div>
+
+<!-- Gallery modal -->
+<div id="galleryModal" class="modal-backdrop">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display text-2xl font-bold text-white">Gallery</h3>
+      <div class="flex items-center gap-2">
+        <button onclick="clearGallery()" class="text-xs text-gray-400 hover:text-pink-300 px-3 py-1.5 rounded-full glass">Clear</button>
+        <button onclick="closeModal('galleryModal')" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="galleryContent" class="flex gap-3 overflow-x-auto pb-2"></div>
+  </div>
+</div>
+
+<!-- Analysis modal (mobile) -->
+<div id="analysisModal" class="modal-backdrop">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display text-2xl font-bold text-white">Skin Analysis</h3>
+      <button onclick="closeModal('analysisModal')" class="text-gray-400 hover:text-white">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="analysisModalContent" class="space-y-4"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ANKIT BEAUTY AI STUDIO — single-file implementation
+   Tech: MediaPipe Face Mesh (468 landmarks + iris refinement)
+   ============================================================ */
+
+// ----- STATE -----
+const state = {
+  studioOpen: false,
+  cameraActive: false,
+  facingMode: 'user',
+  facingFlipped: true, // mirror for front camera
+  activeFeature: 'hairstyle',
+  faceMesh: null,
+  camera: null,
+  lastResults: null,
+  videoEl: null,
+  effectCanvas: null,
+  overlayCanvas: null,
+  ectx: null,
+  octx: null,
+  captures: [],
+  analysisOpen: false,
+  // selections
+  sel: {
+    hairstyle: null,
+    beard: null,
+    lipstick: null,
+    lipGloss: false,
+    eyeColor: null,
+    eyeshadow: null,
+    eyeliner: null,
+    blush: null,
+    foundation: null,
+    contour: false,
+    glam: null,
+    smooth: 0,
+  },
+  // intensities 0..1
+  intensity: {
+    lipstick: 0.7,
+    blush: 0.55,
+    foundation: 0.4,
+    eyeshadow: 0.6,
+    eyeliner: 0.9,
+    eyeColor: 0.85,
+    smooth: 0.0,
+    glam: 0.6,
+    hairstyle: 1.0,
+    beard: 0.85,
+    contour: 0.5,
+  },
+  // skin analysis (rolling)
+  analysis: {
+    brightness: 0, redness: 0, evenness: 0, tone: 0, smoothScore: 0, ageEst: 0, hydration: 0,
+  },
+  // for smoothing
+  prevLandmarks: null,
+  frameCount: 0,
+};
+
+// ----- FEATURE DEFINITIONS -----
+const FEATURES = [
+  { id: 'hairstyle', name: 'Hair', icon: '<path d="M12 2C8 8 6 11 6 14a6 6 0 0 0 12 0c0-3-2-6-6-12z"/>' },
+  { id: 'beard', name: 'Beard', icon: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>' },
+  { id: 'lipstick', name: 'Lips', icon: '<path d="M12 2C8 8 6 11 6 14a6 6 0 0 0 12 0c0-3-2-6-6-12z"/>' },
+  { id: 'eyeColor', name: 'Eyes', icon: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
+  { id: 'eyeshadow', name: 'Shadow', icon: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>' },
+  { id: 'eyeliner', name: 'Liner', icon: '<path d="M3 12c4-6 14-6 18 0-4 6-14 6-18 0z"/>' },
+  { id: 'blush', name: 'Blush', icon: '<circle cx="9" cy="12" r="3"/><circle cx="15" cy="12" r="3"/>' },
+  { id: 'foundation', name: 'Base', icon: '<circle cx="12" cy="12" r="9"/>' },
+  { id: 'glam', name: 'Glam', icon: '<path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6"/>' },
+  { id: 'skin', name: 'Analyze', icon: '<path d="M3 12h4l3-9 4 18 3-9h4"/>' },
+];
+
+const OPTIONS = {
+  hairstyle: [
+    { id: 'short', name: 'Short', color: '#3b2417' },
+    { id: 'tousled', name: 'Tousled', color: '#4a2c1a' },
+    { id: 'medium', name: 'Medium', color: '#6b3e22' },
+    { id: 'long', name: 'Long', color: '#2d1810' },
+    { id: 'curly', name: 'Curly', color: '#1a0f08' },
+    { id: 'bun', name: 'Top Bun', color: '#3b2417' },
+    { id: 'ponytail', name: 'Ponytail', color: '#4a2c1a' },
+    { id: 'buzz', name: 'Buzz Cut', color: '#2d1810' },
+    { id: 'bob', name: 'Bob', color: '#5a3220' },
+  ],
+  beard: [
+    { id: 'stubble', name: 'Stubble', color: '#3b2417' },
+    { id: 'goatee', name: 'Goatee', color: '#2d1810' },
+    { id: 'full', name: 'Full', color: '#1a0f08' },
+    { id: 'mustache', name: 'Mustache', color: '#4a2c1a' },
+    { id: 'vandyke', name: 'Van Dyke', color: '#3b2417' },
+    { id: 'anchor', name: 'Anchor', color: '#2d1810' },
+    { id: 'garibaldi', name: 'Garibaldi', color: '#1a0f08' },
+  ],
+  lipstick: [
+    { id: 'crimson', name: 'Crimson', color: '#dc143c' },
+    { id: 'rose', name: 'Rose', color: '#e0115f' },
+    { id: 'coral', name: 'Coral', color: '#ff7f50' },
+    { id: 'berry', name: 'Berry', color: '#8b1a4f' },
+    { id: 'nude', name: 'Nude', color: '#c68e7e' },
+    { id: 'mauve', name: 'Mauve', color: '#a87c7c' },
+    { id: 'plum', name: 'Plum', color: '#673147' },
+    { id: 'red', name: 'Classic Red', color: '#e60026' },
+    { id: 'pink', name: 'Hot Pink', color: '#ff1493' },
+    { id: 'wine', name: 'Wine', color: '#722f37' },
+    { id: 'peach', name: 'Peach', color: '#ffb07c' },
+    { id: 'bronze', name: 'Bronze', color: '#a87b3e' },
+  ],
+  eyeColor: [
+    { id: 'blue', name: 'Ocean Blue', color: '#1e90ff' },
+    { id: 'green', name: 'Forest Green', color: '#2e8b57' },
+    { id: 'hazel', name: 'Hazel', color: '#b5a642' },
+    { id: 'gray', name: 'Slate Gray', color: '#708090' },
+    { id: 'amber', name: 'Amber', color: '#ffbf00' },
+    { id: 'violet', name: 'Violet', color: '#7b2cbf' },
+    { id: 'brown', name: 'Deep Brown', color: '#3b2417' },
+    { id: 'honey', name: 'Honey', color: '#ebae34' },
+  ],
+  eyeshadow: [
+    { id: 'gold', name: 'Gold', color: '#d4af37' },
+    { id: 'smoky', name: 'Smoky', color: '#2c2435' },
+    { id: 'rose', name: 'Rose', color: '#e0a3b0' },
+    { id: 'bronze', name: 'Bronze', color: '#a87b3e' },
+    { id: 'purple', name: 'Purple', color: '#7b2cbf' },
+    { id: 'teal', name: 'Teal', color: '#008080' },
+    { id: 'silver', name: 'Silver', color: '#c0c0c0' },
+    { id: 'copper', name: 'Copper', color: '#b87333' },
+  ],
+  eyeliner: [
+    { id: 'classic', name: 'Classic', color: '#000000' },
+    { id: 'winged', name: 'Winged', color: '#1a1a1a' },
+    { id: 'brown', name: 'Brown', color: '#3b2417' },
+    { id: 'graphic', name: 'Graphic', color: '#0a0a0a' },
+    { id: 'colorful', name: 'Color Pop', color: '#7b2cbf' },
+  ],
+  blush: [
+    { id: 'peach', name: 'Peach', color: '#ffb07c' },
+    { id: 'rose', name: 'Rose', color: '#ff7e9d' },
+    { id: 'coral', name: 'Coral', color: '#ff6b6b' },
+    { id: 'pink', name: 'Soft Pink', color: '#ffc0cb' },
+    { id: 'berry', name: 'Berry', color: '#c2185b' },
+    { id: 'mauve', name: 'Mauve', color: '#a87c7c' },
+  ],
+  foundation: [
+    { id: 'porcelain', name: 'Porcelain', color: '#f5d5c0' },
+    { id: 'ivory', name: 'Ivory', color: '#f0c8a8' },
+    { id: 'beige', name: 'Beige', color: '#e0b48a' },
+    { id: 'tan', name: 'Tan', color: '#c89878' },
+    { id: 'honey', name: 'Honey', color: '#b07c5c' },
+    { id: 'almond', name: 'Almond', color: '#8b5a3c' },
+    { id: 'espresso', name: 'Espresso', color: '#5c3a26' },
+    { id: 'deep', name: 'Deep', color: '#3b2417' },
+  ],
+  glam: [
+    { id: 'smooth', name: 'Skin Smooth', color: '#ffe4e6' },
+    { id: 'glow', name: 'Glow', color: '#fef3c7' },
+    { id: 'vignette', name: 'Vignette', color: '#1f1d36' },
+    { id: 'vintage', name: 'Vintage', color: '#c4a574' },
+    { id: 'noir', name: 'Noir', color: '#0a0a0a' },
+    { id: 'dreamy', name: 'Dreamy', color: '#a8c8ff' },
+  ],
+  skin: [], // analysis - no options, just toggle
+};
+
+// ----- LANDMARK INDICES -----
+const LM = {
+  faceOval: [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109],
+  lipsOuter: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146],
+  lipsInner: [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95],
+  leftEye: [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246],
+  rightEye: [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398],
+  leftIris: [468, 469, 470, 471, 472],
+  rightIris: [473, 474, 475, 476, 477],
+  leftEyebrow: [70, 63, 105, 66, 107, 55, 65, 52, 53, 46],
+  rightEyebrow: [300, 293, 334, 296, 336, 285, 295, 282, 283, 276],
+  noseTip: 1,
+  noseBridge: [168, 6, 197, 195, 5, 4, 1],
+  chin: 152,
+  foreheadTop: 10,
+  leftCheek: 50,
+  rightCheek: 280,
+  leftTemple: 234,
+  rightTemple: 454,
+  noseLeft: 129,
+  noseRight: 358,
+  upperLipTop: 0,
+  lowerLipBottom: 17,
+};
+
+// ============================================================
+// LANDING / STUDIO SWITCHING
+// ============================================================
+function openStudio() {
+  state.studioOpen = true;
+  document.getElementById('landingView').style.display = 'none';
+  document.getElementById('studioView').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  buildFeatureTabs();
+  buildOptionsRow();
+  // Show permission overlay
+  document.getElementById('permissionOverlay').style.display = 'flex';
+}
+
+function exitStudio() {
+  state.studioOpen = false;
+  stopCamera();
+  document.getElementById('landingView').style.display = '';
+  document.getElementById('studioView').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ============================================================
+// CAMERA + FACE MESH
+// ============================================================
+async function startCamera() {
+  const video = document.getElementById('videoEl');
+  const loading = document.getElementById('loadingOverlay');
+  const perm = document.getElementById('permissionOverlay');
+  const label = document.getElementById('loadingLabel');
+
+  try {
+    perm.style.display = 'none';
+    loading.style.display = 'flex';
+    label.textContent = 'Requesting camera…';
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: state.facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await new Promise((resolve) => { video.onloadedmetadata = () => resolve(); });
+    await video.play();
+
+    state.videoEl = video;
+    state.cameraActive = true;
+
+    // Setup canvases to match video aspect
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+
+    label.textContent = 'Loading AI model…';
+    if (!state.faceMesh) {
+      state.faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      });
+      state.faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+      state.faceMesh.onResults(onResults);
+    }
+
+    // Use MediaPipe Camera util for the loop
+    if (state.camera) { state.camera.stop(); }
+    state.camera = new Camera(video, {
+      onFrame: async () => {
+        if (state.cameraActive && state.faceMesh) {
+          try { await state.faceMesh.send({ image: video }); } catch (e) {}
+        }
+      },
+      width: 1280,
+      height: 720,
+    });
+    state.camera.start();
+
+    loading.style.display = 'none';
+    setLive(true);
+    showToast('Camera ready · Face mesh active');
+  } catch (err) {
+    console.error(err);
+    loading.style.display = 'none';
+    perm.style.display = 'flex';
+    showToast('Camera access denied or unavailable');
+  }
+}
+
+function stopCamera() {
+  state.cameraActive = false;
+  setLive(false);
+  if (state.camera) { try { state.camera.stop(); } catch(e){} state.camera = null; }
+  const video = document.getElementById('videoEl');
+  if (video && video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  }
+}
+
+function switchCamera() {
+  state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
+  state.facingFlipped = state.facingMode === 'user';
+  const video = document.getElementById('videoEl');
+  video.style.transform = state.facingFlipped ? 'scaleX(-1)' : 'scaleX(1)';
+  document.getElementById('overlayCanvas').style.transform = state.facingFlipped ? 'scaleX(-1)' : 'scaleX(1)';
+  if (state.cameraActive) {
+    stopCamera();
+    setTimeout(() => startCamera(), 200);
+  }
+}
+
+function resizeCanvases() {
+  const video = state.videoEl;
+  if (!video || !video.videoWidth) return;
+  const effect = document.getElementById('effectCanvas');
+  const overlay = document.getElementById('overlayCanvas');
+  [effect, overlay].forEach(c => {
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+  });
+  state.effectCanvas = effect;
+  state.overlayCanvas = overlay;
+  state.ectx = effect.getContext('2d');
+  state.octx = overlay.getContext('2d');
+}
+
+function setLive(on) {
+  const dot = document.getElementById('liveDot');
+  const label = document.getElementById('liveLabel');
+  if (on) {
+    dot.style.background = '#22c55e';
+    dot.style.boxShadow = '0 0 8px #22c55e';
+    dot.classList.add('status-dot');
+    label.textContent = 'LIVE';
+  } else {
+    dot.style.background = '#6b7280';
+    dot.style.boxShadow = 'none';
+    dot.classList.remove('status-dot');
+    label.textContent = 'STANDBY';
+  }
+}
+
+// ============================================================
+// RENDER LOOP — runs on every frame
+// ============================================================
+function onResults(results) {
+  state.lastResults = results;
+  state.frameCount++;
+
+  const ectx = state.ectx;
+  const octx = state.octx;
+  if (!ectx || !octx) return;
+
+  // Clear both canvases
+  ectx.clearRect(0, 0, state.effectCanvas.width, state.effectCanvas.height);
+  octx.clearRect(0, 0, state.overlayCanvas.width, state.overlayCanvas.height);
+
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+    // No face — show hint on overlay
+    drawNoFaceHint(octx, state.overlayCanvas.width, state.overlayCanvas.height);
+    return;
+  }
+
+  const lm = results.multiFaceLandmarks[0];
+  const w = state.overlayCanvas.width;
+  const h = state.overlayCanvas.height;
+
+  // 1. Glam filters (skin smoothing etc.) — drawn on effect canvas first (under makeup)
+  if (state.sel.glam) applyGlamFilter(ectx, lm, w, h);
+
+  // 2. Foundation
+  if (state.sel.foundation) drawFoundation(ectx, lm, w, h);
+
+  // 3. Contour
+  if (state.sel.contour) drawContour(ectx, lm, w, h);
+
+  // 4. Blush
+  if (state.sel.blush) drawBlush(ectx, lm, w, h);
+
+  // 5. Eyeshadow
+  if (state.sel.eyeshadow) drawEyeshadow(ectx, lm, w, h);
+
+  // 6. Eyeliner
+  if (state.sel.eyeliner) drawEyeliner(ectx, lm, w, h);
+
+  // 7. Eye color (iris)
+  if (state.sel.eyeColor) drawEyeColor(ectx, lm, w, h);
+
+  // 8. Lipstick
+  if (state.sel.lipstick) drawLipstick(ectx, lm, w, h);
+
+  // 9. Beard (drawn over lower face)
+  if (state.sel.beard) drawBeard(ectx, lm, w, h);
+
+  // 10. Hairstyle (drawn on top, extends above forehead)
+  if (state.sel.hairstyle) drawHairstyle(ectx, lm, w, h);
+
+  // Overlay: tracking dots (optional, subtle)
+  if (state.analysisOpen) {
+    drawTrackingOverlay(octx, lm, w, h);
+  }
+
+  // Skin analysis (every N frames)
+  if (state.frameCount % 8 === 0) {
+    runSkinAnalysis(lm, w, h);
+    if (state.analysisOpen) updateAnalysisUI();
+  }
+}
+
+function drawNoFaceHint(ctx, w, h) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(0, h/2 - 60, w, 120);
+  ctx.fillStyle = '#fff';
+  ctx.font = '600 24px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Looking for your face…', w/2, h/2);
+  ctx.font = '400 14px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText('Center your face in the camera', w/2, h/2 + 28);
+  ctx.restore();
+}
+
+// ============================================================
+// HELPER: landmark to pixel
+// ============================================================
+function pt(lm, idx, w, h) {
+  const l = lm[idx];
+  return { x: l.x * w, y: l.y * h, z: l.z };
+}
+function pts(lm, indices, w, h) {
+  return indices.map(i => pt(lm, i, w, h));
+}
+function centroid(arr) {
+  let x=0, y=0;
+  arr.forEach(p => { x+=p.x; y+=p.y; });
+  return { x: x/arr.length, y: y/arr.length };
+}
+function dist(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
+function rgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function hexToHSL(hex) {
+  let r = parseInt(hex.slice(1,3),16)/255;
+  let g = parseInt(hex.slice(3,5),16)/255;
+  let b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max) {
+      case r: h = (g-b)/d + (g<b?6:0); break;
+      case g: h = (b-r)/d + 2; break;
+      case b: h = (r-g)/d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h*360, s: s*100, l: l*100 };
+}
+
+function drawPath(ctx, points, closed = true) {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+  if (closed) ctx.closePath();
+}
+
+function smoothPath(ctx, points, closed = true) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i === 0 ? (closed ? points[points.length-1] : points[0]) : points[i-1];
+    const p1 = points[i];
+    const p2 = points[i+1];
+    const p3 = i+2 < points.length ? points[i+2] : (closed ? points[(i+2)%points.length] : p2);
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+  if (closed) ctx.closePath();
+}
+
+// ============================================================
+// FEATURE: LIPSTICK
+// ============================================================
+function drawLipstick(ctx, lm, w, h) {
+  const color = OPTIONS.lipstick.find(o => o.id === state.sel.lipstick)?.color || '#dc143c';
+  const intensity = state.intensity.lipstick;
+  const gloss = state.sel.lipGloss;
+
+  const outer = pts(lm, LM.lipsOuter, w, h);
+  const inner = pts(lm, LM.lipsInner, w, h);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = intensity;
+
+  // Upper lip (outer path minus inner)
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(outer[0].x, outer[0].y);
+  for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i].x, outer[i].y);
+  ctx.closePath();
+  ctx.moveTo(inner[0].x, inner[0].y);
+  for (let i = inner.length - 1; i >= 0; i--) ctx.lineTo(inner[i].x, inner[i].y);
+  ctx.closePath();
+  ctx.fill('evenodd');
+
+  ctx.restore();
+
+  // Gloss highlight
+  if (gloss) {
+    ctx.save();
+    const lipCenter = centroid([pt(lm, 0, w, h), pt(lm, 13, w, h), pt(lm, 14, w, h), pt(lm, 17, w, h)]);
+    const lipWidth = dist(pt(lm, 61, w, h), pt(lm, 291, w, h));
+    const grad = ctx.createRadialGradient(lipCenter.x, lipCenter.y, 0, lipCenter.x, lipCenter.y, lipWidth * 0.4);
+    grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(lipCenter.x, lipCenter.y, lipWidth * 0.35, lipWidth * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// FEATURE: EYE COLOR
+// ============================================================
+function drawEyeColor(ctx, lm, w, h) {
+  const color = OPTIONS.eyeColor.find(o => o.id === state.sel.eyeColor)?.color || '#1e90ff';
+  const intensity = state.intensity.eyeColor;
+  const hsl = hexToHSL(color);
+
+  [LM.leftIris, LM.rightIris].forEach(irisIdx => {
+    const iris = pts(lm, irisIdx, w, h);
+    const c = centroid(iris);
+    const r = dist(iris[0], iris[2]) / 2;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = intensity;
+
+    // Radial gradient for realistic iris
+    const grad = ctx.createRadialGradient(c.x, c.y, r * 0.2, c.x, c.y, r);
+    grad.addColorStop(0, `hsla(${hsl.h}, ${hsl.s}%, ${Math.min(hsl.l + 15, 90)}%, 1)`);
+    grad.addColorStop(0.6, color);
+    grad.addColorStop(1, `hsla(${hsl.h}, ${hsl.s}%, ${Math.max(hsl.l - 20, 15)}%, 1)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * 0.95, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pupil
+    ctx.fillStyle = 'rgba(0,0,0,0.9)';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(c.x - r * 0.35, c.y - r * 0.35, r * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ============================================================
+// FEATURE: EYESHADOW
+// ============================================================
+function drawEyeshadow(ctx, lm, w, h) {
+  const color = OPTIONS.eyeshadow.find(o => o.id === state.sel.eyeshadow)?.color || '#d4af37';
+  const intensity = state.intensity.eyeshadow;
+
+  const apply = (eyeIdx, browIdx, side) => {
+    const eye = pts(lm, eyeIdx, w, h);
+    const brow = pts(lm, browIdx, w, h);
+    const eyeTop = eye.reduce((a,b) => a.y < b.y ? a : b);
+    const browBot = brow.reduce((a,b) => a.y > b.y ? a : b);
+    const eyeC = centroid(eye);
+    const browC = centroid(brow);
+    const eyeWidth = dist(eye[0], eye[8]);
+    const grad = ctx.createLinearGradient(0, browC.y, 0, eyeC.y);
+    grad.addColorStop(0, rgba(color, intensity * 0.9));
+    grad.addColorStop(1, rgba(color, intensity * 0.2));
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    // Build shape: along brow, down sides, along eye top
+    ctx.moveTo(brow[0].x, brow[0].y);
+    for (let i = 1; i < brow.length; i++) ctx.lineTo(brow[i].x, brow[i].y);
+    // down to outer eye corner
+    ctx.lineTo(eye[0].x, eye[0].y);
+    // along top of eye
+    for (let i = 1; i <= eye.length/2; i++) {
+      const p = eye[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  apply(LM.leftEye, LM.leftEyebrow, 'left');
+  apply(LM.rightEye, LM.rightEyebrow, 'right');
+}
+
+// ============================================================
+// FEATURE: EYELINER
+// ============================================================
+function drawEyeliner(ctx, lm, w, h) {
+  const color = OPTIONS.eyeliner.find(o => o.id === state.sel.eyeliner)?.color || '#000000';
+  const intensity = state.intensity.eyeliner;
+  const style = state.sel.eyeliner;
+
+  const apply = (eyeIdx, side) => {
+    const eye = pts(lm, eyeIdx, w, h);
+    const eyeWidth = dist(eye[0], eye[8]);
+    const lineW = eyeWidth * 0.08;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = intensity;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineW;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Top lash line: follow upper lid (indices 0..8 typically)
+    const upper = [eye[0], eye[1], eye[2], eye[3], eye[4], eye[5], eye[6], eye[7], eye[8]];
+    ctx.beginPath();
+    ctx.moveTo(upper[0].x, upper[0].y);
+    for (let i = 1; i < upper.length; i++) ctx.lineTo(upper[i].x, upper[i].y);
+    ctx.stroke();
+
+    // Wing for winged style
+    if (style === 'winged' || style === 'graphic') {
+      const last = upper[upper.length - 1];
+      const wingLen = eyeWidth * 0.25;
+      const wingAngle = side === 'left' ? -Math.PI/4 : -Math.PI/4;
+      const wingDx = side === 'left' ? -wingLen : wingLen;
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(last.x + wingDx, last.y - wingLen * 0.8);
+      ctx.stroke();
+    }
+
+    // Graphic: extra line above
+    if (style === 'graphic') {
+      ctx.lineWidth = lineW * 0.6;
+      ctx.beginPath();
+      const mid = upper[Math.floor(upper.length/2)];
+      ctx.moveTo(upper[0].x, upper[0].y - lineW * 2);
+      ctx.lineTo(mid.x, mid.y - lineW * 3.5);
+      ctx.lineTo(upper[upper.length-1].x, upper[upper.length-1].y - lineW * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  };
+
+  apply(LM.leftEye, 'left');
+  apply(LM.rightEye, 'right');
+}
+
+// ============================================================
+// FEATURE: BLUSH
+// ============================================================
+function drawBlush(ctx, lm, w, h) {
+  const color = OPTIONS.blush.find(o => o.id === state.sel.blush)?.color || '#ffb07c';
+  const intensity = state.intensity.blush;
+
+  const leftCheek = pt(lm, 234, w, h);
+  const rightCheek = pt(lm, 454, w, h);
+  const nose = pt(lm, 1, w, h);
+  const mouth = pt(lm, 13, w, h);
+
+  const faceWidth = dist(leftCheek, rightCheek);
+  const blushR = faceWidth * 0.13;
+
+  // Cheek centers: between temple and nose, slightly below nose
+  const leftCenter = {
+    x: leftCheek.x + (nose.x - leftCheek.x) * 0.55,
+    y: leftCheek.y + (mouth.y - leftCheek.y) * 0.45,
+  };
+  const rightCenter = {
+    x: rightCheek.x + (nose.x - rightCheek.x) * 0.55,
+    y: rightCheek.y + (mouth.y - rightCheek.y) * 0.45,
+  };
+
+  const drawCheek = (center) => {
+    const grad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, blushR);
+    grad.addColorStop(0, rgba(color, intensity));
+    grad.addColorStop(0.6, rgba(color, intensity * 0.5));
+    grad.addColorStop(1, rgba(color, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, blushR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  drawCheek(leftCenter);
+  drawCheek(rightCenter);
+}
+
+// ============================================================
+// FEATURE: FOUNDATION
+// ============================================================
+function drawFoundation(ctx, lm, w, h) {
+  const color = OPTIONS.foundation.find(o => o.id === state.sel.foundation)?.color || '#f0c8a8';
+  const intensity = state.intensity.foundation;
+
+  const oval = pts(lm, LM.faceOval, w, h);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = intensity;
+  ctx.fillStyle = color;
+  smoothPath(ctx, oval, true);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+// FEATURE: CONTOUR
+// ============================================================
+function drawContour(ctx, lm, w, h) {
+  const intensity = state.intensity.contour;
+  const leftTemple = pt(lm, 234, w, h);
+  const rightTemple = pt(lm, 454, w, h);
+  const jawLeft = pt(lm, 172, w, h);
+  const jawRight = pt(lm, 397, w, h);
+  const chin = pt(lm, 152, w, h);
+  const nose = pt(lm, 6, w, h);
+  const faceWidth = dist(leftTemple, rightTemple);
+
+  const drawShadow = (points, radius) => {
+    const c = centroid(points);
+    const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, radius);
+    grad.addColorStop(0, `rgba(80, 50, 30, ${intensity * 0.6})`);
+    grad.addColorStop(1, 'rgba(80, 50, 30, 0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  drawShadow([leftTemple, jawLeft], faceWidth * 0.18);
+  drawShadow([rightTemple, jawRight], faceWidth * 0.18);
+  drawShadow([chin], faceWidth * 0.15);
+
+  // Nose contour
+  const noseBridge = pts(lm, LM.noseBridge, w, h);
+  const noseWidth = dist(pt(lm, 129, w, h), pt(lm, 358, w, h));
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.strokeStyle = `rgba(80, 50, 30, ${intensity * 0.5})`;
+  ctx.lineWidth = noseWidth * 0.15;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(noseBridge[0].x - noseWidth * 0.3, noseBridge[0].y);
+  ctx.lineTo(noseBridge[noseBridge.length-1].x - noseWidth * 0.3, noseBridge[noseBridge.length-1].y);
+  ctx.moveTo(noseBridge[0].x + noseWidth * 0.3, noseBridge[0].y);
+  ctx.lineTo(noseBridge[noseBridge.length-1].x + noseWidth * 0.3, noseBridge[noseBridge.length-1].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ============================================================
+// FEATURE: HAIRSTYLE
+// ============================================================
+function drawHairstyle(ctx, lm, w, h) {
+  const style = state.sel.hairstyle;
+  const opt = OPTIONS.hairstyle.find(o => o.id === style);
+  const color = opt?.color || '#3b2417';
+  const intensity = state.intensity.hairstyle;
+
+  const forehead = pt(lm, 10, w, h);
+  const leftTemple = pt(lm, 234, w, h);
+  const rightTemple = pt(lm, 454, w, h);
+  const leftEye = pt(lm, 33, w, h);
+  const rightEye = pt(lm, 263, w, h);
+  const chin = pt(lm, 152, w, h);
+  const faceWidth = dist(leftTemple, rightTemple);
+  const faceHeight = dist(forehead, chin);
+  const headTop = { x: forehead.x, y: forehead.y - faceHeight * 0.55 };
+  const headTopL = { x: leftTemple.x - faceWidth * 0.05, y: headTop.y };
+  const headTopR = { x: rightTemple.x + faceWidth * 0.05, y: headTop.y };
+
+  ctx.save();
+  ctx.globalAlpha = intensity;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+
+  const darker = shadeColor(color, -25);
+  const lighter = shadeColor(color, 15);
+
+  switch (style) {
+    case 'short': {
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.1, headTop.y + faceHeight * 0.05, forehead.x - faceWidth * 0.15, headTop.y);
+      ctx.quadraticCurveTo(forehead.x, headTop.y - faceHeight * 0.05, forehead.x + faceWidth * 0.15, headTop.y);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.1, headTop.y + faceHeight * 0.05, rightTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x, forehead.y, forehead.x, forehead.y - faceHeight * 0.02);
+      ctx.quadraticCurveTo(leftTemple.x, forehead.y, leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, forehead.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(1, color);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      break;
+    }
+    case 'tousled': {
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y);
+      // Tousled top with bumps
+      const steps = 12;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = leftTemple.x + (rightTemple.x - leftTemple.x) * t;
+        const baseY = forehead.y - faceHeight * 0.4 * Math.sin(t * Math.PI);
+        const bump = (i % 2 === 0) ? -faceHeight * 0.08 : 0;
+        const y = baseY + bump;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.lineTo(rightTemple.x, forehead.y);
+      ctx.lineTo(leftTemple.x, forehead.y);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, forehead.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(1, color);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      break;
+    }
+    case 'medium': {
+      // Cover top + sides down to ears
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.18, headTop.y, forehead.x, headTop.y - faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.18, headTop.y, rightTemple.x, forehead.y + faceHeight * 0.05);
+      // Down sides
+      ctx.lineTo(rightTemple.x + faceWidth * 0.05, rightTemple.y + faceHeight * 0.35);
+      ctx.lineTo(leftTemple.x - faceWidth * 0.05, leftTemple.y + faceHeight * 0.35);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, forehead.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(1, color);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      break;
+    }
+    case 'long': {
+      // Long flowing hair on both sides
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.2, headTop.y, forehead.x, headTop.y - faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.2, headTop.y, rightTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.lineTo(rightTemple.x + faceWidth * 0.15, chin.y + faceHeight * 0.15);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.05, chin.y, rightTemple.x, chin.y + faceHeight * 0.05);
+      ctx.lineTo(leftTemple.x, chin.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.05, chin.y, leftTemple.x - faceWidth * 0.15, chin.y + faceHeight * 0.15);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, chin.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(0.6, color); grad.addColorStop(1, darker);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      break;
+    }
+    case 'curly': {
+      // Cluster of circles for curly hair
+      const clusterCenters = [];
+      const rows = 4;
+      const cols = 9;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const t = c / (cols - 1);
+          const x = leftTemple.x + (rightTemple.x - leftTemple.x) * t + (r % 2 ? faceWidth * 0.04 : -faceWidth * 0.04);
+          const yBase = forehead.y - faceHeight * 0.5 * Math.sin(t * Math.PI);
+          const y = yBase - r * faceHeight * 0.1;
+          clusterCenters.push({ x, y });
+        }
+      }
+      // Side curls
+      for (let r = 0; r < 4; r++) {
+        clusterCenters.push({ x: leftTemple.x - faceWidth * 0.05, y: leftTemple.y + r * faceHeight * 0.1 });
+        clusterCenters.push({ x: rightTemple.x + faceWidth * 0.05, y: rightTemple.y + r * faceHeight * 0.1 });
+      }
+      clusterCenters.forEach(c => {
+        const r = faceWidth * 0.07;
+        const grad = ctx.createRadialGradient(c.x - r*0.3, c.y - r*0.3, 0, c.x, c.y, r);
+        grad.addColorStop(0, lighter); grad.addColorStop(1, color);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      break;
+    }
+    case 'bun': {
+      // Tight hair on top + bun
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.1, headTop.y + faceHeight * 0.05, forehead.x, headTop.y);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.1, headTop.y + faceHeight * 0.05, rightTemple.x, forehead.y);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      // Bun
+      const bunC = { x: forehead.x, y: headTop.y - faceHeight * 0.15 };
+      const bunR = faceWidth * 0.18;
+      const grad = ctx.createRadialGradient(bunC.x - bunR*0.3, bunC.y - bunR*0.3, 0, bunC.x, bunC.y, bunR);
+      grad.addColorStop(0, lighter); grad.addColorStop(1, darker);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(bunC.x, bunC.y, bunR, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'ponytail': {
+      // Top hair + ponytail on side
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.15, headTop.y, forehead.x, headTop.y - faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.15, headTop.y, rightTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.lineTo(rightTemple.x, rightTemple.y + faceHeight * 0.1);
+      ctx.lineTo(leftTemple.x, leftTemple.y + faceHeight * 0.1);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, forehead.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(1, color);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // Ponytail
+      ctx.beginPath();
+      ctx.moveTo(rightTemple.x + faceWidth * 0.05, forehead.y - faceHeight * 0.1);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.5, forehead.y + faceHeight * 0.3, rightTemple.x + faceWidth * 0.3, chin.y + faceHeight * 0.2);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.15, chin.y + faceHeight * 0.1, rightTemple.x + faceWidth * 0.1, forehead.y);
+      ctx.closePath();
+      const grad2 = ctx.createLinearGradient(rightTemple.x, forehead.y, rightTemple.x + faceWidth * 0.4, chin.y);
+      grad2.addColorStop(0, color); grad2.addColorStop(1, darker);
+      ctx.fillStyle = grad2;
+      ctx.fill();
+      break;
+    }
+    case 'buzz': {
+      // Very short, subtle shading on top
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.05, headTop.y + faceHeight * 0.1, forehead.x, headTop.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.05, headTop.y + faceHeight * 0.1, rightTemple.x, forehead.y);
+      ctx.closePath();
+      ctx.globalAlpha = intensity * 0.6;
+      ctx.fillStyle = color;
+      ctx.fill();
+      // Add stipple dots
+      for (let i = 0; i < 80; i++) {
+        const t = Math.random();
+        const x = leftTemple.x + (rightTemple.x - leftTemple.x) * t;
+        const yBase = forehead.y - faceHeight * 0.4 * Math.sin(t * Math.PI);
+        const y = yBase + (Math.random() - 0.5) * faceHeight * 0.1;
+        ctx.globalAlpha = intensity * 0.7;
+        ctx.fillStyle = Math.random() > 0.5 ? color : darker;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'bob': {
+      // Bob cut - chin length, smooth
+      ctx.beginPath();
+      ctx.moveTo(leftTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.18, headTop.y, forehead.x, headTop.y - faceHeight * 0.05);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.18, headTop.y, rightTemple.x, forehead.y + faceHeight * 0.05);
+      ctx.lineTo(rightTemple.x + faceWidth * 0.12, chin.y);
+      ctx.quadraticCurveTo(rightTemple.x + faceWidth * 0.05, chin.y + faceHeight * 0.05, rightTemple.x, chin.y + faceHeight * 0.05);
+      ctx.lineTo(leftTemple.x, chin.y + faceHeight * 0.05);
+      ctx.quadraticCurveTo(leftTemple.x - faceWidth * 0.05, chin.y + faceHeight * 0.05, leftTemple.x - faceWidth * 0.12, chin.y);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, headTop.y, 0, chin.y);
+      grad.addColorStop(0, lighter); grad.addColorStop(0.5, color); grad.addColorStop(1, darker);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function shadeColor(hex, percent) {
+  let r = parseInt(hex.slice(1,3),16);
+  let g = parseInt(hex.slice(3,5),16);
+  let b = parseInt(hex.slice(5,7),16);
+  r = Math.max(0, Math.min(255, r + (percent/100)*255));
+  g = Math.max(0, Math.min(255, g + (percent/100)*255));
+  b = Math.max(0, Math.min(255, b + (percent/100)*255));
+  return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+}
+
+// ============================================================
+// FEATURE: BEARD
+// ============================================================
+function drawBeard(ctx, lm, w, h) {
+  const style = state.sel.beard;
+  const opt = OPTIONS.beard.find(o => o.id === style);
+  const color = opt?.color || '#3b2417';
+  const intensity = state.intensity.beard;
+
+  const chin = pt(lm, 152, w, h);
+  const leftJaw = pt(lm, 172, w, h);
+  const rightJaw = pt(lm, 397, w, h);
+  const leftMouth = pt(lm, 61, w, h);
+  const rightMouth = pt(lm, 291, w, h);
+  const lowerLip = pt(lm, 17, w, h);
+  const upperLip = pt(lm, 0, w, h);
+  const noseTip = pt(lm, 2, w, h);
+  const noseL = pt(lm, 129, w, h);
+  const noseR = pt(lm, 358, w, h);
+  const faceWidth = dist(pt(lm, 234, w, h), pt(lm, 454, w, h));
+  const faceHeight = dist(pt(lm, 10, w, h), chin);
+
+  ctx.save();
+  ctx.globalAlpha = intensity;
+
+  const darker = shadeColor(color, -20);
+  const lighter = shadeColor(color, 10);
+
+  const stipple = (region, density, baseR) => {
+    // Sample points within polygon region
+    const bounds = region.reduce((acc, p) => ({
+      minX: Math.min(acc.minX, p.x), maxX: Math.max(acc.maxX, p.x),
+      minY: Math.min(acc.minY, p.y), maxY: Math.max(acc.maxY, p.y),
+    }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    const count = density;
+    for (let i = 0; i < count; i++) {
+      const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+      const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+      if (pointInPolygon({x,y}, region)) {
+        const r = baseR * (0.6 + Math.random() * 0.8);
+        const c = Math.random() > 0.5 ? color : (Math.random() > 0.5 ? darker : lighter);
+        ctx.fillStyle = c;
+        ctx.globalAlpha = intensity * (0.5 + Math.random() * 0.5);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  };
+
+  // Full beard region
+  const fullBeardRegion = [
+    leftJaw, pt(lm, 136, w, h), pt(lm, 150, w, h), pt(lm, 149, w, h), pt(lm, 176, w, h), pt(lm, 148, w, h),
+    chin,
+    pt(lm, 377, w, h), pt(lm, 400, w, h), pt(lm, 378, w, h), pt(lm, 379, w, h), pt(lm, 365, w, h), pt(lm, 397, w, h),
+    rightJaw, rightMouth, lowerLip, leftMouth, leftJaw,
+  ];
+
+  // Mustache region
+  const mustacheRegion = [
+    pt(lm, 33, w, h), noseL, pt(lm, 102, w, h), pt(lm, 48, w, h), upperLip, pt(lm, 278, w, h), pt(lm, 327, w, h), noseR, pt(lm, 263, w, h),
+    rightMouth, upperLip, leftMouth,
+  ];
+
+  switch (style) {
+    case 'stubble':
+      stipple(fullBeardRegion, 400, faceWidth * 0.006);
+      stipple(mustacheRegion, 80, faceWidth * 0.006);
+      break;
+    case 'goatee':
+      // Chin area only
+      const goateeRegion = [
+        lowerLip, pt(lm, 18, w, h), pt(lm, 200, w, h), pt(lm, 199, w, h), chin, pt(lm, 423, w, h), pt(lm, 424, w, h), pt(lm, 425, w, h), lowerLip,
+      ];
+      stipple(goateeRegion, 250, faceWidth * 0.008);
+      stipple(mustacheRegion, 120, faceWidth * 0.008);
+      break;
+    case 'full':
+      // Fill with gradient
+      const grad = ctx.createLinearGradient(0, upperLip.y, 0, chin.y + faceHeight * 0.1);
+      grad.addColorStop(0, color);
+      grad.addColorStop(1, darker);
+      ctx.fillStyle = grad;
+      ctx.globalAlpha = intensity * 0.85;
+      smoothPath(ctx, fullBeardRegion, true);
+      ctx.fill();
+      // Add texture
+      stipple(fullBeardRegion, 200, faceWidth * 0.005);
+      stipple(mustacheRegion, 100, faceWidth * 0.005);
+      break;
+    case 'mustache':
+      stipple(mustacheRegion, 250, faceWidth * 0.008);
+      break;
+    case 'vandyke':
+      // Mustache + chin goatee (no sides)
+      stipple(mustacheRegion, 200, faceWidth * 0.008);
+      const vandykeChin = [
+        lowerLip, pt(lm, 18, w, h), pt(lm, 200, w, h), chin, pt(lm, 423, w, h), pt(lm, 425, w, h), lowerLip,
+      ];
+      stipple(vandykeChin, 200, faceWidth * 0.008);
+      break;
+    case 'anchor':
+      // Thin mustache + chin strip
+      stipple(mustacheRegion, 120, faceWidth * 0.007);
+      const anchorChin = [
+        lowerLip, pt(lm, 18, w, h), chin, pt(lm, 425, w, h), lowerLip,
+      ];
+      stipple(anchorChin, 180, faceWidth * 0.007);
+      break;
+    case 'garibaldi':
+      // Full wide beard, rounded
+      stipple(fullBeardRegion, 350, faceWidth * 0.008);
+      stipple(mustacheRegion, 150, faceWidth * 0.008);
+      // Add density at chin
+      const chinRegion = [pt(lm, 200, w, h), chin, pt(lm, 423, w, h), pt(lm, 425, w, h)];
+      stipple(chinRegion, 100, faceWidth * 0.009);
+      break;
+  }
+  ctx.restore();
+}
+
+function pointInPolygon(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// ============================================================
+// FEATURE: GLAM FILTERS
+// ============================================================
+function applyGlamFilter(ctx, lm, w, h) {
+  const type = state.sel.glam;
+  const intensity = state.intensity.glam;
+
+  switch (type) {
+    case 'smooth': {
+      // Skin smoothing via face oval region blur
+      const oval = pts(lm, LM.faceOval, w, h);
+      const faceMask = new Path2D();
+      smoothPath(ctx, oval, true);
+      faceMask.closePath();
+      ctx.save();
+      ctx.clip(faceMask);
+      // Draw blurred version using canvas filter
+      const video = state.videoEl;
+      if (video) {
+        ctx.filter = `blur(${4 + intensity * 6}px)`;
+        ctx.globalAlpha = intensity * 0.7;
+        ctx.drawImage(video, 0, 0, w, h);
+        ctx.filter = 'none';
+      }
+      ctx.restore();
+      break;
+    }
+    case 'glow': {
+      const oval = pts(lm, LM.faceOval, w, h);
+      const faceMask = new Path2D();
+      smoothPathToPath2D(faceMask, oval);
+      ctx.save();
+      ctx.clip(faceMask);
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = intensity * 0.4;
+      const c = centroid(oval);
+      const r = dist(oval[0], c) * 1.2;
+      const grad = ctx.createRadialGradient(c.x, c.y - r*0.3, 0, c.x, c.y - r*0.3, r);
+      grad.addColorStop(0, 'rgba(255, 230, 200, 0.9)');
+      grad.addColorStop(1, 'rgba(255, 230, 200, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      break;
+    }
+    case 'vignette': {
+      const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.3, w/2, h/2, Math.max(w,h)*0.7);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, `rgba(0,0,0,${intensity * 0.7})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      break;
+    }
+    case 'vintage': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'overlay';
+      ctx.globalAlpha = intensity * 0.5;
+      ctx.fillStyle = '#c4a574';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      // Add slight vignette
+      const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.4, w/2, h/2, Math.max(w,h)*0.7);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, `rgba(80, 50, 20, ${intensity * 0.4})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      break;
+    }
+    case 'noir': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'saturation';
+      ctx.globalAlpha = intensity;
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      // Contrast vignette
+      const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.35, w/2, h/2, Math.max(w,h)*0.7);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, `rgba(0,0,0,${intensity * 0.8})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      break;
+    }
+    case 'dreamy': {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = intensity * 0.35;
+      ctx.fillStyle = '#a8c8ff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      // Soft glow
+      const grad = ctx.createRadialGradient(w/2, h*0.4, 0, w/2, h*0.4, Math.max(w,h)*0.6);
+      grad.addColorStop(0, `rgba(255, 220, 240, ${intensity * 0.3})`);
+      grad.addColorStop(1, 'rgba(255, 220, 240, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      break;
+    }
+  }
+}
+
+function smoothPathToPath2D(path2d, points) {
+  if (points.length < 2) return;
+  path2d.moveTo(points[0].x, points[0].y);
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i === 0 ? points[points.length-1] : points[i-1];
+    const p1 = points[i];
+    const p2 = points[i+1];
+    const p3 = i+2 < points.length ? points[i+2] : points[0];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+  }
+  path2d.closePath();
+}
+
+// ============================================================
+// SKIN ANALYSIS
+// ============================================================
+function runSkinAnalysis(lm, w, h) {
+  const video = state.videoEl;
+  if (!video || !video.videoWidth) return;
+
+  // Sample skin pixels from cheek and forehead regions
+  const samplePoints = [
+    pt(lm, 50, w, h),   // left cheek
+    pt(lm, 280, w, h),  // right cheek
+    pt(lm, 10, w, h),   // forehead
+    pt(lm, 21, w, h),   // forehead left
+    pt(lm, 251, w, h),  // forehead right
+  ];
+
+  // Draw video to offscreen canvas to read pixels
+  const off = getOffscreenCanvas(w, h);
+  const octx = off.getContext('2d');
+  octx.drawImage(video, 0, 0, w, h);
+
+  let totalR = 0, totalG = 0, totalB = 0, totalBright = 0, totalVariance = 0, count = 0;
+  const brightnesses = [];
+
+  const sampleR = Math.max(4, Math.floor(w * 0.012));
+  for (const p of samplePoints) {
+    try {
+      const px = Math.floor(p.x);
+      const py = Math.floor(p.y);
+      const data = octx.getImageData(px - sampleR, py - sampleR, sampleR * 2, sampleR * 2).data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        totalR += r; totalG += g; totalB += b;
+        const bright = (r + g + b) / 3;
+        totalBright += bright;
+        brightnesses.push(bright);
+        count++;
+      }
+    } catch (e) {}
+  }
+  if (count === 0) return;
+
+  const avgR = totalR / count;
+  const avgG = totalG / count;
+  const avgB = totalB / count;
+  const avgBright = totalBright / count;
+
+  // Variance for evenness
+  for (const b of brightnesses) totalVariance += Math.abs(b - avgBright);
+  const avgVariance = totalVariance / brightnesses.length;
+  const evenness = Math.max(0, Math.min(100, 100 - avgVariance * 0.8));
+
+  // Redness: R relative to G+B
+  const redness = Math.max(0, Math.min(100, ((avgR * 2 - avgG - avgB) / 2.55)));
+
+  // Brightness 0..100
+  const brightness = Math.max(0, Math.min(100, avgBright / 2.55));
+
+  // Tone classification based on hue
+  const max = Math.max(avgR, avgG, avgB);
+  const min = Math.min(avgR, avgG, avgB);
+  let toneLabel = 'Medium';
+  const lightness = (max + min) / 2 / 2.55;
+  if (lightness > 75) toneLabel = 'Porcelain';
+  else if (lightness > 60) toneLabel = 'Light';
+  else if (lightness > 45) toneLabel = 'Medium';
+  else if (lightness > 30) toneLabel = 'Tan';
+  else if (lightness > 15) toneLabel = 'Deep';
+  else toneLabel = 'Espresso';
+
+  // Smoothness score (proxy from variance)
+  const smoothScore = Math.max(0, Math.min(100, evenness * 0.7 + brightness * 0.3));
+
+  // Age estimate (very rough proxy)
+  const ageEst = Math.max(18, Math.min(75, Math.round(60 - smoothScore * 0.4 + redness * 0.1)));
+
+  // Hydration proxy
+  const hydration = Math.max(0, Math.min(100, smoothScore * 0.5 + (100 - redness) * 0.5));
+
+  // Smooth values
+  state.analysis.brightness = lerp(state.analysis.brightness, brightness, 0.3);
+  state.analysis.redness = lerp(state.analysis.redness, redness, 0.3);
+  state.analysis.evenness = lerp(state.analysis.evenness, evenness, 0.3);
+  state.analysis.smoothScore = lerp(state.analysis.smoothScore, smoothScore, 0.3);
+  state.analysis.ageEst = lerp(state.analysis.ageEst, ageEst, 0.1);
+  state.analysis.hydration = lerp(state.analysis.hydration, hydration, 0.3);
+  state.analysis.tone = toneLabel;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+let _offscreen = null;
+function getOffscreenCanvas(w, h) {
+  if (!_offscreen) _offscreen = document.createElement('canvas');
+  if (_offscreen.width !== w) _offscreen.width = w;
+  if (_offscreen.height !== h) _offscreen.height = h;
+  return _offscreen;
+}
+
+function updateAnalysisUI() {
+  const a = state.analysis;
+  const html = `
+    <div class="flex items-center justify-between">
+      <span class="text-gray-400 text-xs">Skin Tone</span>
+      <span class="text-white font-semibold">${a.tone}</span>
+    </div>
+    ${meter('Brightness', a.brightness, '#fbbf24')}
+    ${meter('Evenness', a.evenness, '#22d3ee')}
+    ${meter('Smoothness', a.smoothScore, '#c084fc')}
+    ${meter('Hydration', a.hydration, '#06b6d4')}
+    ${meter('Redness', a.redness, '#ef4444', true)}
+    <div class="flex items-center justify-between pt-2 border-t border-white/5">
+      <span class="text-gray-400 text-xs">Est. Age</span>
+      <span class="text-white font-mono font-semibold">~${Math.round(a.ageEst)} yrs</span>
+    </div>
+    <div class="flex items-center justify-between">
+      <span class="text-gray-400 text-xs">Overall Score</span>
+      <span class="font-display text-2xl font-bold" style="background: linear-gradient(135deg, #c084fc, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent;">${Math.round((a.smoothScore + a.evenness + a.hydration) / 3)}/100</span>
+    </div>
+  `;
+  document.getElementById('analysisContent').innerHTML = html;
+  if (document.getElementById('analysisModalContent')) {
+    document.getElementById('analysisModalContent').innerHTML = html;
+  }
+}
+
+function meter(label, value, color, inverse = false) {
+  const v = Math.round(value);
+  const display = inverse ? (100 - v) : v;
+  return `
+    <div>
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-gray-400 text-xs">${label}</span>
+        <span class="text-white font-mono text-xs">${v}%</span>
+      </div>
+      <div class="meter-bar"><div class="fill" style="width:${v}%; background:${color};"></div></div>
+    </div>
+  `;
+}
+
+function drawTrackingOverlay(ctx, lm, w, h) {
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = 'rgba(192, 132, 252, 0.6)';
+  ctx.fillStyle = 'rgba(192, 132, 252, 0.8)';
+  ctx.lineWidth = 1;
+
+  // Draw all landmarks as small dots
+  for (let i = 0; i < lm.length; i++) {
+    const x = lm[i].x * w;
+    const y = lm[i].y * h;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Highlight key regions
+  ctx.strokeStyle = 'rgba(244, 114, 182, 0.7)';
+  ctx.lineWidth = 2;
+  const oval = pts(lm, LM.faceOval, w, h);
+  smoothPath(ctx, oval, true);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(34, 211, 238, 0.7)';
+  const lipsOut = pts(lm, LM.lipsOuter, w, h);
+  smoothPath(ctx, lipsOut, true);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ============================================================
+// UI BUILDERS
+// ============================================================
+function buildFeatureTabs() {
+  const wrap = document.getElementById('featureTabs');
+  wrap.innerHTML = '';
+  FEATURES.forEach(f => {
+    const btn = document.createElement('button');
+    btn.className = 'feat-tab' + (f.id === state.activeFeature ? ' active' : '');
+    btn.dataset.feature = f.id;
+    btn.innerHTML = `<svg class="icon-svg" viewBox="0 0 24 24">${f.icon}</svg>${f.name}`;
+    btn.onclick = () => selectFeature(f.id);
+    wrap.appendChild(btn);
+  });
+}
+
+function selectFeature(id) {
+  state.activeFeature = id;
+  buildFeatureTabs();
+  buildOptionsRow();
+  if (id === 'skin') {
+    toggleAnalysis(true);
+  }
+}
+
+function buildOptionsRow() {
+  const row = document.getElementById('optionsRow');
+  const slider = document.getElementById('sliderRow');
+  row.innerHTML = '';
+  const feat = state.activeFeature;
+
+  if (feat === 'skin') {
+    slider.classList.add('hidden');
+    row.innerHTML = `<div class="text-xs text-gray-400 px-2 py-3">Live skin analysis is active. Tap the chart icon to view full report.</div>`;
+    return;
+  }
+
+  const opts = OPTIONS[feat] || [];
+
+  // None / Clear option
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'opt-chip' + (!state.sel[feat] ? ' active' : '');
+  noneBtn.innerHTML = `
+    <div class="swatch flex items-center justify-center" style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2);">
+      <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>
+    <div class="label">None</div>
+  `;
+  noneBtn.onclick = () => selectOption(feat, null);
+  row.appendChild(noneBtn);
+
+  opts.forEach(o => {
+    const btn = document.createElement('button');
+    const active = state.sel[feat] === o.id;
+    btn.className = 'opt-chip' + (active ? ' active' : '');
+    let swatchStyle = `background: ${o.color};`;
+    if (feat === 'lipstick') {
+      swatchStyle = `background: linear-gradient(135deg, ${o.color}, ${shadeColor(o.color, -20)});`;
+    } else if (feat === 'eyeColor') {
+      swatchStyle = `background: radial-gradient(circle at 35% 35%, ${shadeColor(o.color, 25)}, ${o.color} 60%, ${shadeColor(o.color, -25)});`;
+    } else if (feat === 'hairstyle' || feat === 'beard') {
+      swatchStyle = `background: linear-gradient(135deg, ${shadeColor(o.color, 15)}, ${o.color}, ${shadeColor(o.color, -20)});`;
+    }
+    btn.innerHTML = `
+      <div class="swatch" style="${swatchStyle}"></div>
+      <div class="label">${o.name}</div>
+    `;
+    btn.onclick = () => selectOption(feat, o.id);
+    row.appendChild(btn);
+  });
+
+  // Show slider for relevant features
+  const hasSlider = ['lipstick','blush','foundation','eyeshadow','eyeliner','eyeColor','glam','hairstyle','beard'].includes(feat);
+  if (hasSlider && state.sel[feat]) {
+    slider.classList.remove('hidden');
+    const sliderInput = document.getElementById('intensitySlider');
+    document.getElementById('sliderLabel').textContent = feat === 'glam' ? 'Filter Strength' : 'Intensity';
+    sliderInput.value = Math.round((state.intensity[feat] || 0.5) * 100);
+    document.getElementById('sliderValue').textContent = sliderInput.value + '%';
+    sliderInput.oninput = (e) => {
+      const v = parseInt(e.target.value);
+      state.intensity[feat] = v / 100;
+      document.getElementById('sliderValue').textContent = v + '%';
+    };
+  } else {
+    slider.classList.add('hidden');
+  }
+
+  // Extra: gloss toggle for lipstick
+  if (feat === 'lipstick' && state.sel.lipstick) {
+    const glossBtn = document.createElement('button');
+    glossBtn.className = 'opt-chip' + (state.sel.lipGloss ? ' active' : '');
+    glossBtn.innerHTML = `
+      <div class="swatch flex items-center justify-center" style="background: linear-gradient(135deg, #fde68a, #f59e0b);">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>
+      </div>
+      <div class="label">Gloss</div>
+    `;
+    glossBtn.onclick = () => { state.sel.lipGloss = !state.sel.lipGloss; buildOptionsRow(); };
+    row.appendChild(glossBtn);
+  }
+
+  // Extra: contour toggle
+  if (feat === 'foundation' && state.sel.foundation) {
+    const contourBtn = document.createElement('button');
+    contourBtn.className = 'opt-chip' + (state.sel.contour ? ' active' : '');
+    contourBtn.innerHTML = `
+      <div class="swatch flex items-center justify-center" style="background: linear-gradient(135deg, #8b5a3c, #3b2417);">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+      </div>
+      <div class="label">Contour</div>
+    `;
+    contourBtn.onclick = () => { state.sel.contour = !state.sel.contour; buildOptionsRow(); };
+    row.appendChild(contourBtn);
+  }
+}
+
+function selectOption(feat, id) {
+  if (id === null) {
+    state.sel[feat] = null;
+    if (feat === 'lipstick') state.sel.lipGloss = false;
+    if (feat === 'foundation') state.sel.contour = false;
+  } else {
+    state.sel[feat] = id;
+  }
+  buildOptionsRow();
+  showToast(feat === 'lipstick' && id ? `${OPTIONS.lipstick.find(o=>o.id===id).name} applied` :
+            feat === 'eyeColor' && id ? `${OPTIONS.eyeColor.find(o=>o.id===id).name} eyes` :
+            id ? 'Applied' : 'Cleared');
+}
+
+function resetAll() {
+  Object.keys(state.sel).forEach(k => {
+    if (typeof state.sel[k] === 'boolean') state.sel[k] = false;
+    else state.sel[k] = null;
+  });
+  state.sel.smooth = 0;
+  buildOptionsRow();
+  showToast('All filters cleared');
+}
+
+// ============================================================
+// CAPTURE
+// ============================================================
+function capturePhoto() {
+  const video = state.videoEl;
+  const effect = state.effectCanvas;
+  if (!video || !video.videoWidth) return;
+
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  const cap = document.createElement('canvas');
+  cap.width = w;
+  cap.height = h;
+  const ctx = cap.getContext('2d');
+
+  // Mirror if front camera
+  if (state.facingFlipped) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(video, 0, 0, w, h);
+  // Draw effect canvas (already mirrored logically)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (state.facingFlipped) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(effect, 0, 0, w, h);
+
+  const dataUrl = cap.toDataURL('image/jpeg', 0.92);
+  state.captures.unshift({ url: dataUrl, ts: Date.now() });
+  if (state.captures.length > 12) state.captures = state.captures.slice(0, 12);
+  updateGalleryBadge();
+
+  // Flash
+  const flash = document.getElementById('flashOverlay');
+  flash.classList.remove('flash');
+  void flash.offsetWidth;
+  flash.classList.add('flash');
+
+  // Show capture modal
+  document.getElementById('captureContent').innerHTML = `
+    <img src="${dataUrl}" class="w-full rounded-2xl mb-4" style="max-height: 60vh; object-fit: contain;" />
+    <div class="flex gap-2">
+      <a href="${dataUrl}" download="ankit-tryon-${Date.now()}.jpg" class="btn-primary flex-1 py-3 text-sm text-center flex items-center justify-center gap-2">
+        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download
+      </a>
+      <button onclick="closeModal('captureModal')" class="btn-ghost px-6 py-3 text-sm">Close</button>
+    </div>
+  `;
+  openModal('captureModal');
+}
+
+function updateGalleryBadge() {
+  const badge = document.getElementById('galleryBadge');
+  if (state.captures.length > 0) {
+    badge.classList.remove('hidden');
+    badge.classList.add('flex');
+    badge.textContent = state.captures.length;
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function openGallery() {
+  const content = document.getElementById('galleryContent');
+  if (state.captures.length === 0) {
+    content.innerHTML = `<div class="text-center text-gray-400 py-12 w-full">No captures yet. Tap the shutter button to save a look.</div>`;
+  } else {
+    content.innerHTML = state.captures.map(c => `
+      <div class="cap-thumb" onclick="viewCapture('${c.url}')">
+        <img src="${c.url}" />
+      </div>
+    `).join('');
+  }
+  openModal('galleryModal');
+}
+
+function viewCapture(url) {
+  closeModal('galleryModal');
+  document.getElementById('captureContent').innerHTML = `
+    <img src="${url}" class="w-full rounded-2xl mb-4" style="max-height: 60vh; object-fit: contain;" />
+    <div class="flex gap-2">
+      <a href="${url}" download="ankit-tryon-${Date.now()}.jpg" class="btn-primary flex-1 py-3 text-sm text-center">Download</a>
+      <button onclick="closeModal('captureModal')" class="btn-ghost px-6 py-3 text-sm">Close</button>
+    </div>
+  `;
+  openModal('captureModal');
+}
+
+function clearGallery() {
+  state.captures = [];
+  updateGalleryBadge();
+  openGallery();
+}
+
+// ============================================================
+// ANALYSIS TOGGLE
+// ============================================================
+function toggleAnalysis(force) {
+  if (typeof force === 'boolean') state.analysisOpen = force;
+  else state.analysisOpen = !state.analysisOpen;
+
+  if (state.analysisOpen) {
+    // Desktop: show side panel. Mobile: show modal.
+    if (window.innerWidth >= 768) {
+      document.getElementById('analysisPanel').classList.remove('hidden');
+    } else {
+      updateAnalysisUI();
+      openModal('analysisModal');
+    }
+  } else {
+    document.getElementById('analysisPanel').classList.add('hidden');
+    closeModal('analysisModal');
+  }
+}
+
+function closeAnalysisPanel() {
+  state.analysisOpen = false;
+  document.getElementById('analysisPanel').classList.add('hidden');
+}
+
+// ============================================================
+// MODALS / TOAST
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+  m.addEventListener('click', (e) => {
+    if (e.target === m) m.classList.remove('active');
+  });
+});
+
+// Keyboard: Escape to exit
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (state.studioOpen) exitStudio();
+    document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+  }
+});
+
+// Prevent scroll on touch
+document.addEventListener('touchmove', (e) => {
+  if (state.studioOpen && e.target.closest('.cam-stage')) e.preventDefault();
+}, { passive: false });
+
+</script>
+</body>
+</html>
